@@ -1,0 +1,69 @@
+## .NET / Visual Studio
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+
+## User-specific / IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+*.userosscache
+*.sln.docstates
+*.ide/
+
+## Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+## Build artifacts
+*.dll
+*.exe
+*.pdb
+*.cache
+*.tlog
+*.log
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Publish
+[Pp]ublish/
+PublishScripts/
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.publishproj
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+## ASP.NET Core
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.key
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Secrets
+secrets.json

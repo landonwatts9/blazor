@@ -1,0 +1,195 @@
+@page "/historical"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@inject HistoricalService HistoricalSvc
+
+<PageTitle>Historical Loan Production</PageTitle>
+
+<div class="range-card">
+    <div class="group">
+        <label>Current Production Period</label>
+        <div class="inputs">
+            <InputDate @bind-Value="prodStart" />
+            <span class="to">to</span>
+            <InputDate @bind-Value="prodEnd" />
+        </div>
+        <div class="quick-btns">
+            <button class="quick-btn" @onclick='() => SetCurrentRange("ytd")'>YTD</button>
+            <button class="quick-btn" @onclick='() => SetCurrentRange("qtd")'>QTD</button>
+            <button class="quick-btn" @onclick='() => SetCurrentRange("last12")'>Last 12 Mo</button>
+        </div>
+    </div>
+    <div class="group">
+        <label>Prior Production Period</label>
+        <div class="inputs">
+            <InputDate @bind-Value="priorStart" />
+            <span class="to">to</span>
+            <InputDate @bind-Value="priorEnd" />
+        </div>
+        <div class="quick-btns">
+            <button class="quick-btn" @onclick='() => SetPriorRange("prioryear_full")'>Full Prior Year</button>
+            <button class="quick-btn" @onclick='() => SetPriorRange("prioryear_same")'>Same Window, Prior Year</button>
+        </div>
+    </div>
+
+    <div class="group">
+        <label>Current Sales Period</label>
+        <div class="inputs">
+            <InputDate @bind-Value="salesStart" />
+            <span class="to">to</span>
+            <InputDate @bind-Value="salesEnd" />
+        </div>
+        <div class="quick-btns">
+            <button class="quick-btn" @onclick="SyncSalesToProd">Match Current Production</button>
+        </div>
+    </div>
+    <div class="group">
+        <label>Prior Sales Period</label>
+        <div class="inputs">
+            <InputDate @bind-Value="salesPriorStart" />
+            <span class="to">to</span>
+            <InputDate @bind-Value="salesPriorEnd" />
+        </div>
+        <div class="quick-btns">
+            <button class="quick-btn" @onclick="SyncSalesPriorToProd">Match Prior Production</button>
+        </div>
+    </div>
+
+    <div class="apply-row">
+        <button class="btn-apply" @onclick="LoadData" disabled="@loading">
+            @(loading ? "Loading..." : "Apply")
+        </button>
+    </div>
+</div>
+
+<div class="section-header">Historical Loan Production</div>
+<div class="section-body">
+    <div class="period-caption">
+        Current: @FmtDate(prodStart) to @FmtDate(prodEnd)  |  Prior: @FmtRange(priorStart, priorEnd)
+    </div>
+    @if (response is not null)
+    {
+        <ProductionTable Title="By Product Type" Rows="@ProductRows" Current="@response.Current.Product" Prior="@response.Prior?.Product" />
+        <ProductionTable Title="By Transaction Type" Rows="@PurposeRows" Current="@response.Current.Purpose" Prior="@response.Prior?.Purpose" />
+        <ProductionTable Title="By Origination Channel" Rows="@ChannelRows" Current="@response.Current.Channel" Prior="@response.Prior?.Channel" />
+    }
+</div>
+
+<div class="section-header">Historical Loan Sales</div>
+<div class="section-body">
+    <div class="period-caption">
+        Current: @FmtDate(salesStart) to @FmtDate(salesEnd)  |  Prior: @FmtRange(salesPriorStart, salesPriorEnd)
+    </div>
+    @if (response is not null)
+    {
+        <ProductionTable Title="By Transaction Type" Rows="@SalesTxnRows" Current="@response.CurrentSales.SalesTxn" Prior="@response.PriorSales?.SalesTxn" />
+        <div class="note">
+            Flow = Best Efforts commitments; Bulk = Mandatory commitments.
+            Based on loans with an investor delivery date in the Sales period (excludes brokered).
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly string[] ProductRows = new[]
+    {
+        "FNMA / FHLMC",
+        "Gov't Agency (FHA, VA, USDA, etc.)",
+        "Non-Agency Conforming",
+        "Jumbo",
+        "Non-QM",
+        "2nds",
+        "Reverse (HECM)",
+    };
+    private static readonly string[] PurposeRows = new[] { "Purchase", "Refi" };
+    private static readonly string[] ChannelRows = new[] { "Retail", "Wholesale", "Correspondent" };
+    private static readonly string[] SalesTxnRows = new[] { "Flow", "Bulk" };
+
+    private DateTime prodStart = new(DateTime.Today.Year, 1, 1);
+    private DateTime prodEnd = DateTime.Today;
+    private DateTime priorStart = new(DateTime.Today.Year - 1, 1, 1);
+    private DateTime priorEnd = new(DateTime.Today.Year - 1, 12, 31);
+
+    private DateTime salesStart = new(DateTime.Today.Year, 1, 1);
+    private DateTime salesEnd = DateTime.Today;
+    private DateTime salesPriorStart = new(DateTime.Today.Year - 1, 1, 1);
+    private DateTime salesPriorEnd = new(DateTime.Today.Year - 1, 12, 31);
+
+    private HistoricalResponse? response;
+    private bool loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        try
+        {
+            response = await HistoricalSvc.FetchFullAsync(
+                prodStart, prodEnd,
+                priorStart, priorEnd,
+                salesStart, salesEnd,
+                salesPriorStart, salesPriorEnd);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void SetCurrentRange(string kind)
+    {
+        var today = DateTime.Today;
+        switch (kind)
+        {
+            case "ytd":
+                prodStart = new DateTime(today.Year, 1, 1);
+                prodEnd = today;
+                break;
+            case "qtd":
+                var q = ((today.Month - 1) / 3) * 3 + 1;
+                prodStart = new DateTime(today.Year, q, 1);
+                prodEnd = today;
+                break;
+            case "last12":
+                prodEnd = today;
+                prodStart = today.AddYears(-1);
+                break;
+        }
+    }
+
+    private void SetPriorRange(string kind)
+    {
+        var today = DateTime.Today;
+        switch (kind)
+        {
+            case "prioryear_full":
+                priorStart = new DateTime(today.Year - 1, 1, 1);
+                priorEnd = new DateTime(today.Year - 1, 12, 31);
+                break;
+            case "prioryear_same":
+                priorStart = prodStart.AddYears(-1);
+                priorEnd = prodEnd.AddYears(-1);
+                break;
+        }
+    }
+
+    private void SyncSalesToProd()
+    {
+        salesStart = prodStart;
+        salesEnd = prodEnd;
+    }
+
+    private void SyncSalesPriorToProd()
+    {
+        salesPriorStart = priorStart;
+        salesPriorEnd = priorEnd;
+    }
+
+    private static string FmtDate(DateTime d) => d.ToString("yyyy-MM-dd");
+    private static string FmtRange(DateTime s, DateTime e) => $"{FmtDate(s)} to {FmtDate(e)}";
+}

@@ -1,0 +1,54 @@
+@using SamReporting.Models
+
+<div class="table-wrap">
+    <table class="prod-table">
+        <thead>
+            <tr class="top">
+                <th rowspan="2" style="text-align:left;">@Title</th>
+                <th colspan="2">Current</th>
+                <th colspan="2">Prior</th>
+            </tr>
+            <tr class="sub">
+                <th>$ Volume</th><th>Units</th>
+                <th>$ Volume</th><th>Units</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                long cUnits = 0; decimal cVol = 0;
+                long pUnits = 0; decimal pVol = 0;
+            }
+            @foreach (var row in Rows)
+            {
+                var c = Current.TryGetValue(row, out var cb) ? cb : Bucket.Empty;
+                var p = Prior is not null && Prior.TryGetValue(row, out var pb) ? pb : Bucket.Empty;
+                cUnits += c.Units; cVol += c.Volume;
+                pUnits += p.Units; pVol += p.Volume;
+                <tr>
+                    <td>@row</td>
+                    <td class="num">@FmtMoney(c.Volume)</td>
+                    <td class="num">@FmtUnits(c.Units)</td>
+                    <td class="num">@FmtMoney(p.Volume)</td>
+                    <td class="num">@FmtUnits(p.Units)</td>
+                </tr>
+            }
+            <tr class="total-row">
+                <td>Total:</td>
+                <td class="num">@FmtMoney(cVol)</td>
+                <td class="num">@FmtUnits(cUnits)</td>
+                <td class="num">@FmtMoney(pVol)</td>
+                <td class="num">@FmtUnits(pUnits)</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<string> Rows { get; set; } = Array.Empty<string>();
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, Bucket> Current { get; set; } = new Dictionary<string, Bucket>();
+    [Parameter] public IReadOnlyDictionary<string, Bucket>? Prior { get; set; }
+
+    private static string FmtMoney(decimal v) => v == 0 ? "$0.00" : "$" + Math.Round(v).ToString("N0");
+    private static string FmtUnits(long v) => v.ToString("N0");
+}

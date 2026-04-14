@@ -1,0 +1,95 @@
+.range-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.5rem;
+    align-items: end;
+}
+
+.group { display: flex; flex-direction: column; gap: 0.4rem; }
+
+label {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #54595F;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.inputs { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.inputs ::deep input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.to { font-size: 0.8rem; color: #54595F; }
+
+.quick-btns { display: flex; gap: 0.3rem; margin-top: 0.3rem; flex-wrap: wrap; }
+
+.quick-btn {
+    background: #edf2f7;
+    color: #0B426A;
+    border: 1px solid #e2e8f0;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.quick-btn:hover { background: #0B426A; color: white; }
+
+.apply-row { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+
+.btn-apply {
+    background: #0B426A;
+    color: white;
+    border: none;
+    padding: 0.55rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.btn-apply:hover { background: #0A7DA3; }
+.btn-apply:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.section-header {
+    background: #2f7d3a;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-weight: 700;
+    font-size: 1rem;
+    border-radius: 6px 6px 0 0;
+    margin-top: 1.5rem;
+}
+
+.section-body {
+    background: #ffffff;
+    border-radius: 0 0 10px 10px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.period-caption {
+    font-size: 0.75rem;
+    color: #54595F;
+    font-weight: 600;
+    text-align: right;
+    margin-bottom: 0.25rem;
+}
+
+.note {
+    font-size: 0.75rem;
+    color: #54595F;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
