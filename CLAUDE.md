@@ -48,6 +48,14 @@ Data source: SQL Server view `vw_EncompassLoan_Silver` (loan/funding data). Date
 
 Connection string lives in [appsettings.json](blazor-webapp/appsettings.json) under `ConnectionStrings:SamReporting` and currently targets `AMB-SQL\AMBSQL` with integrated auth — development requires Windows auth access to that server.
 
+## Workflow
+
+- `main` is always deployable. The live IIS server pulls `main` and runs `dotnet build` + `dotnet publish`.
+- New work goes on a short-lived feature branch: `git checkout -b feature/<name>`. Merge to `main` only when the page has been tested locally via `dotnet watch run`.
+- Local `dotnet watch run` (http://localhost:5285) is the test environment — fully isolated from the live IIS site, even though both read the same SQL DB.
+- **Shared DB warning:** live and dev both hit `AMB-SQL\AMBSQL`. SELECT queries are safe; never introduce INSERT/UPDATE/DELETE without a separate dev DB.
+- **Schema changes propagate instantly.** Any `ALTER VIEW` / DDL applied to `SAM_Reporting` is live for the production app immediately. Keep changes additive (new columns only) and commit the script under [blazor-webapp/sql/](blazor-webapp/sql/) for traceability.
+
 ## Conventions
 
 - Nullable reference types and implicit usings are enabled.
