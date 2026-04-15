@@ -1,0 +1,69 @@
+@page "/processor"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@inject ProcessorService ProcessorSvc
+
+<PageTitle>Processor Pipeline</PageTitle>
+
+<div class="section-header">My Pipeline</div>
+<div class="section-body">
+    @if (loading)
+    {
+        <p>Loading...</p>
+    }
+    else if (rows is null || rows.Count == 0)
+    {
+        <p>No loans in My Pipeline match the UW status filter.</p>
+    }
+    else
+    {
+        <table class="pipeline-table">
+            <thead>
+                <tr>
+                    <th>Loan #</th>
+                    <th>Borrower</th>
+                    <th>UW Current Status</th>
+                    <th>UW Status Date</th>
+                    <th>Processor</th>
+                    <th>Loan Officer</th>
+                    <th>Est. Closing</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in rows)
+                {
+                    <tr>
+                        <td>@r.LoanNumber</td>
+                        <td>@r.BorrowerName</td>
+                        <td>@r.UwCurrentStatus</td>
+                        <td>@FmtDate(r.UwCurrentStatusDate)</td>
+                        <td>@r.ProcessorName</td>
+                        <td>@r.LoanOfficerName</td>
+                        <td>@FmtDate(r.EstimatedClosingDate)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<ProcessorPipelineRow>? rows;
+    private bool loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loading = true;
+        try
+        {
+            rows = await ProcessorSvc.GetMyPipelineAsync();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string FmtDate(DateTime? d) => d?.ToString("yyyy-MM-dd") ?? "";
+}

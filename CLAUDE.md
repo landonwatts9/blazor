@@ -18,6 +18,23 @@ Run from the `blazor-webapp/` directory:
 
 No test project exists yet.
 
+## Querying the database directly
+
+For ad-hoc SQL exploration without spinning up the Blazor app, use `sqlcmd` (go-sqlcmd, installed at `C:\Program Files\sqlcmd\sqlcmd.exe`). Auth is **integrated Windows auth** — works automatically as the current user, no credentials needed.
+
+```bash
+sqlcmd -S "AMB-SQL\AMBSQL" -d SAM_Reporting -E -Q "SELECT TOP 10 * FROM vw_EncompassLoan_Silver"
+```
+
+Flags: `-S server\instance`, `-d database`, `-E` integrated auth, `-Q` one-shot query (use `-i file.sql` for a script).
+
+If `sqlcmd` isn't on PATH in the current shell (stale Bash session), prepend it:
+```bash
+export PATH="$PATH:/c/Program Files/sqlcmd"
+```
+
+The primary data source is the view `vw_EncompassLoan_Silver`. Server `AMB-SQL:1433` is reachable from this machine.
+
 ## Architecture
 
 Interactive Server Blazor — pages are rendered server-side with `AddInteractiveServerRenderMode()` (see [Program.cs](blazor-webapp/Program.cs)). Routing via [Components/Routes.razor](blazor-webapp/Components/Routes.razor); layout at [Components/Layout/MainLayout.razor](blazor-webapp/Components/Layout/MainLayout.razor).

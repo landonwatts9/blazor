@@ -15,6 +15,7 @@ public class Program
 
         builder.Services.AddSingleton<SqlService>();
         builder.Services.AddScoped<HistoricalService>();
+        builder.Services.AddScoped<ProcessorService>();
 
         var app = builder.Build();
 
