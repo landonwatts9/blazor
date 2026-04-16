@@ -10,9 +10,15 @@ public record MonthlyKpis(
     public decimal TotalVolume => FundedVolume + ProjectedVolume;
 }
 
-public record DailyProjection(int Day, int Units, decimal Volume);
+public record DailyProjection(int Day, int Retail, int HECM, int Brokered, decimal Volume)
+{
+    public int Units => Retail + HECM + Brokered;
+}
 
-public record MilestoneBucket(string Milestone, int Units, decimal Volume, int SortOrder);
+public record MilestoneBucket(string Milestone, int Retail, int HECM, int Brokered, decimal Volume, int SortOrder)
+{
+    public int Units => Retail + HECM + Brokered;
+}
 
 public record PipelineAgingRow(
     string Milestone,
@@ -86,15 +92,17 @@ public record ProjectedLoanDetail(
     decimal? LoanAmount,
     DateTime? EstimatedClosingDate);
 
-public record MonthlyDashboardData(
+public record MonthlySummary(
     MonthlyKpis Kpis,
     IReadOnlyList<DailyProjection> ProjectedByDay,
     IReadOnlyList<MilestoneBucket> ProjectedByMilestone,
-    PipelineHealth PipelineAging,
-    TurnTimes TurnTimes,
-    IReadOnlyList<TurnTimeSegment> TurnTimeWaterfall,
-    IReadOnlyList<TurnTimeTrendPoint> TurnTimeTrend,
-    ChannelPurposeBreakdown ChannelPurpose,
-    IReadOnlyList<LoanOfficerRow> LoanOfficers,
-    IReadOnlyList<FundedLoanDetail> FundedDetail,
-    IReadOnlyList<ProjectedLoanDetail> ProjectedDetail);
+    ChannelPurposeBreakdown ChannelPurpose);
+
+public record TurnTimeBundle(
+    TurnTimes Current,
+    IReadOnlyList<TurnTimeSegment> Waterfall,
+    IReadOnlyList<TurnTimeTrendPoint> Trend);
+
+public record LoanDetailBundle(
+    IReadOnlyList<FundedLoanDetail> Funded,
+    IReadOnlyList<ProjectedLoanDetail> Projected);

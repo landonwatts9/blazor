@@ -1,3 +1,4 @@
+using ApexCharts;
 using SamReporting.Components;
 using SamReporting.Services;
 
@@ -16,6 +17,8 @@ public class Program
         builder.Services.AddSingleton<SqlService>();
         builder.Services.AddScoped<HistoricalService>();
         builder.Services.AddScoped<ProcessorService>();
+        builder.Services.AddScoped<MonthlyDashboardService>();
+        builder.Services.AddApexCharts();
 
         var app = builder.Build();
 

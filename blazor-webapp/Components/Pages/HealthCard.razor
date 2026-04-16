@@ -1,0 +1,11 @@
+<div class="health-card tier-@Tier.ToLower()">
+    <div class="health-label">@Tier.ToUpper() CONFIDENCE</div>
+    <div class="health-value">@Units loans</div>
+    <div class="health-sub">@($"${Volume:N0}")</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Tier { get; set; } = "";
+    [Parameter] public int Units { get; set; }
+    [Parameter] public decimal Volume { get; set; }
+}

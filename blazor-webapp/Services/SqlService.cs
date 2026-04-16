@@ -5,6 +5,7 @@ namespace SamReporting.Services;
 
 public class SqlService
 {
+    private const int CommandTimeoutSeconds = 180;
     private readonly string _connectionString;
 
     public SqlService(IConfiguration config)
@@ -18,7 +19,7 @@ public class SqlService
     {
         await using var conn = new SqlConnection(_connectionString);
         await conn.OpenAsync();
-        await using var cmd = new SqlCommand(sql, conn);
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = CommandTimeoutSeconds };
         foreach (var (name, value) in parameters)
             cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
 
@@ -39,7 +40,7 @@ public class SqlService
     {
         await using var conn = new SqlConnection(_connectionString);
         await conn.OpenAsync();
-        await using var cmd = new SqlCommand(sql, conn);
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = CommandTimeoutSeconds };
         foreach (var (name, value) in parameters)
             cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
 

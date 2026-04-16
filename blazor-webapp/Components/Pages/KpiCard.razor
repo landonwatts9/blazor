@@ -1,0 +1,15 @@
+<div class="kpi-card accent-@Accent">
+    <div class="kpi-label">@Label</div>
+    <div class="kpi-value">@Value</div>
+    @if (!string.IsNullOrEmpty(SubLabel))
+    {
+        <div class="kpi-sub">@SubLabel</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter] public string? SubLabel { get; set; }
+    [Parameter] public string Accent { get; set; } = "blue";
+}

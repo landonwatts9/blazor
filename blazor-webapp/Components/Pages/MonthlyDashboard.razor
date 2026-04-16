@@ -1,0 +1,564 @@
+@page "/monthly"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@using ApexCharts
+@inject MonthlyDashboardService Svc
+
+<PageTitle>Monthly Dashboard</PageTitle>
+
+<div class="period-bar">
+    <div class="period-group">
+        <label>YEAR</label>
+        <select @bind="year">
+            @for (var y = DateTime.Today.Year; y >= DateTime.Today.Year - 5; y--)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </div>
+    <div class="period-group">
+        <label>MONTH</label>
+        <select @bind="month">
+            @for (var m = 1; m <= 12; m++)
+            {
+                <option value="@m">@(new DateTime(2000, m, 1).ToString("MMMM"))</option>
+            }
+        </select>
+    </div>
+    <button class="btn-apply" @onclick="Apply" disabled="@summaryLoading">
+        @(summaryLoading ? "Loading..." : "Apply")
+    </button>
+</div>
+
+@if (summary is null)
+{
+    <p class="empty">@(summaryLoading ? "Loading summary..." : "Select a period and click Apply.")</p>
+}
+else
+{
+    <!-- Primary KPI row (from Summary) -->
+    <div class="kpi-row primary">
+        <KpiCard Label="MTD FUNDED UNITS"    Value="@summary.Kpis.FundedUnits.ToString("N0")"    Accent="teal" />
+        <KpiCard Label="MTD FUNDED VOLUME"   Value="@FmtMoney(summary.Kpis.FundedVolume)"        Accent="teal" />
+        <KpiCard Label="PROJECTED UNITS"     Value="@summary.Kpis.ProjectedUnits.ToString("N0")" Accent="blue" />
+        <KpiCard Label="PROJECTED VOLUME"    Value="@FmtMoney(summary.Kpis.ProjectedVolume)"     Accent="blue" />
+        <KpiCard Label="TOTAL UNITS"         Value="@summary.Kpis.TotalUnits.ToString("N0")"     Accent="amber" />
+        <KpiCard Label="TOTAL VOLUME"        Value="@FmtMoney(summary.Kpis.TotalVolume)"         Accent="amber" />
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab @(tab == "summary" ? "active" : "")"  @onclick='() => SelectTab("summary")'>Summary</button>
+        <button class="tab @(tab == "pipeline" ? "active" : "")" @onclick='() => SelectTab("pipeline")'>Pipeline</button>
+        <button class="tab @(tab == "turntime" ? "active" : "")" @onclick='() => SelectTab("turntime")'>Turn Times</button>
+        <button class="tab @(tab == "los" ? "active" : "")"      @onclick='() => SelectTab("los")'>Loan Officers</button>
+        <button class="tab @(tab == "detail" ? "active" : "")"   @onclick='() => SelectTab("detail")'>Loan Detail</button>
+    </div>
+
+    @if (tab == "summary")
+    {
+        <div class="card">
+            <h3>Projected Loans by Estimated Closing Day</h3>
+            <ApexChart TItem="DailyProjection" Options="_byDayOptions" Height="300">
+                <ApexPointSeries TItem="DailyProjection" Items="summary.ProjectedByDay" Name="Retail"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day)"
+                                 YValue="@(e => (decimal)e.Retail)" />
+                <ApexPointSeries TItem="DailyProjection" Items="summary.ProjectedByDay" Name="HECM"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day)"
+                                 YValue="@(e => (decimal)e.HECM)" />
+                <ApexPointSeries TItem="DailyProjection" Items="summary.ProjectedByDay" Name="Brokered"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Day)"
+                                 YValue="@(e => (decimal)e.Brokered)" />
+            </ApexChart>
+        </div>
+
+        <div class="card">
+            <h3>Projected Loans by Milestone</h3>
+            <ApexChart TItem="MilestoneBucket" Options="_byMilestoneOptions" Height="300">
+                <ApexPointSeries TItem="MilestoneBucket" Items="summary.ProjectedByMilestone" Name="Retail"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Milestone)"
+                                 YValue="@(e => (decimal)e.Retail)" />
+                <ApexPointSeries TItem="MilestoneBucket" Items="summary.ProjectedByMilestone" Name="HECM"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Milestone)"
+                                 YValue="@(e => (decimal)e.HECM)" />
+                <ApexPointSeries TItem="MilestoneBucket" Items="summary.ProjectedByMilestone" Name="Brokered"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.Milestone)"
+                                 YValue="@(e => (decimal)e.Brokered)" />
+            </ApexChart>
+        </div>
+
+        <div class="card split">
+            <div class="split-half">
+                <h3>MTD Funded by Channel</h3>
+                <table class="data-table compact">
+                    <thead><tr><th>Channel</th><th class="num">Units</th><th class="num">Volume</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in summary.ChannelPurpose.Channels)
+                        {
+                            <tr><td>@c.Label</td><td class="num">@c.Units</td><td class="num">@FmtMoney(c.Volume)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="split-half">
+                <h3>MTD Funded by Purpose</h3>
+                <table class="data-table compact">
+                    <thead><tr><th>Purpose</th><th class="num">Units</th><th class="num">Volume</th></tr></thead>
+                    <tbody>
+                        @foreach (var pu in summary.ChannelPurpose.Purposes)
+                        {
+                            <tr><td>@pu.Label</td><td class="num">@pu.Units</td><td class="num">@FmtMoney(pu.Volume)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (tab == "pipeline")
+    {
+        @if (pipeline is null)
+        {
+            <p class="empty">Loading pipeline data...</p>
+        }
+        else
+        {
+            <div class="health-row">
+                <HealthCard Tier="High"   Units="pipeline.Tiers.HighUnits"   Volume="pipeline.Tiers.HighVolume" />
+                <HealthCard Tier="Medium" Units="pipeline.Tiers.MediumUnits" Volume="pipeline.Tiers.MediumVolume" />
+                <HealthCard Tier="Low"    Units="pipeline.Tiers.LowUnits"    Volume="pipeline.Tiers.LowVolume" />
+                <div class="health-card stale">
+                    <div class="health-label">STALE ALERTS</div>
+                    <div class="health-value">@pipeline.StaleCount</div>
+                    <div class="health-sub">Early stage > 30 days</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Pipeline Aging by Milestone</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Milestone</th><th>Confidence</th>
+                            <th class="num">Loans</th><th class="num">Volume</th>
+                            <th class="num">Avg Days</th><th class="num">Min</th><th class="num">Max</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in pipeline.Milestones)
+                        {
+                            <tr class="conf-@r.Confidence.ToLower()">
+                                <td>@r.Milestone</td>
+                                <td><span class="conf-pill @r.Confidence.ToLower()">@r.Confidence</span></td>
+                                <td class="num">@r.Units</td>
+                                <td class="num">@FmtMoney(r.Volume)</td>
+                                <td class="num">@r.AvgDays.ToString("N0")</td>
+                                <td class="num">@r.MinDays</td>
+                                <td class="num">@r.MaxDays</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+    @if (tab == "turntime")
+    {
+        @if (turnTimes is null)
+        {
+            <p class="empty">Loading turn time data...</p>
+        }
+        else
+        {
+            <div class="kpi-row">
+                <KpiCard Label="AVG APP \u2192 FUND"  Value="@FmtDays(turnTimes.Current.AppToFund)"  SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.AppToFund3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG LOCK \u2192 FUND" Value="@FmtDays(turnTimes.Current.LockToFund)" SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.LockToFund3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG UW \u2192 STC"    Value="@FmtDays(turnTimes.Current.UwToStc)"    SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.UwToStc3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG STC \u2192 DOCS"  Value="@FmtDays(turnTimes.Current.StcToDocs)"  SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.StcToDocs3Mo)}")" Accent="blue" />
+            </div>
+
+            <div class="card split">
+                <div class="split-half">
+                    <h3>Turn Time by Stage <span class="muted">Avg business days</span></h3>
+                    <ApexChart TItem="TurnTimeSegment" Options="_hBarOptions" Height="340">
+                        <ApexPointSeries TItem="TurnTimeSegment" Items="turnTimes.Waterfall" Name="Days"
+                                         SeriesType="SeriesType.Bar"
+                                         XValue="@(e => e.Label)"
+                                         YValue="@(e => (decimal)e.Days)" />
+                    </ApexChart>
+                </div>
+                <div class="split-half">
+                    <h3>Monthly Turn Time Trend <span class="muted">Business days</span></h3>
+                    <ApexChart TItem="TurnTimeTrendPoint" Options="_lineOptions" Height="340">
+                        <ApexPointSeries TItem="TurnTimeTrendPoint" Items="turnTimes.Trend" Name="App \u2192 Fund"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="@(e => e.Month)"
+                                         YValue="@(e => (decimal)(e.AppToFund ?? 0))" />
+                        <ApexPointSeries TItem="TurnTimeTrendPoint" Items="turnTimes.Trend" Name="Lock \u2192 Fund"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="@(e => e.Month)"
+                                         YValue="@(e => (decimal)(e.LockToFund ?? 0))" />
+                    </ApexChart>
+                </div>
+            </div>
+        }
+    }
+
+    @if (tab == "los")
+    {
+        @if (loanOfficers is null)
+        {
+            <p class="empty">Loading loan officer data...</p>
+        }
+        else
+        {
+            <div class="card">
+                <h3>Loan Officer Summary</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            @SortHeader("LoanOfficer", "Loan Officer", loSort, loDesc, SortLo)
+                            @SortHeader("FundedUnits", "Funded Units", loSort, loDesc, SortLo, numeric: true)
+                            @SortHeader("FundedVolume", "Funded Volume", loSort, loDesc, SortLo, numeric: true)
+                            @SortHeader("ProjectedUnits", "Projected Units", loSort, loDesc, SortLo, numeric: true)
+                            @SortHeader("ProjectedVolume", "Projected Volume", loSort, loDesc, SortLo, numeric: true)
+                            @SortHeader("TotalUnits", "Total Units", loSort, loDesc, SortLo, numeric: true)
+                            @SortHeader("TotalVolume", "Total Volume", loSort, loDesc, SortLo, numeric: true)
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in SortedLoanOfficers)
+                        {
+                            <tr>
+                                <td>@(string.IsNullOrWhiteSpace(r.LoanOfficer) ? "(Unassigned)" : r.LoanOfficer)</td>
+                                <td class="num">@r.FundedUnits</td>
+                                <td class="num">@FmtMoney(r.FundedVolume)</td>
+                                <td class="num">@r.ProjectedUnits</td>
+                                <td class="num">@FmtMoney(r.ProjectedVolume)</td>
+                                <td class="num"><strong>@r.TotalUnits</strong></td>
+                                <td class="num"><strong>@FmtMoney(r.TotalVolume)</strong></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+    @if (tab == "detail")
+    {
+        @if (detail is null)
+        {
+            <p class="empty">Loading loan detail...</p>
+        }
+        else
+        {
+            <div class="card">
+                <div class="subtabs">
+                    <button class="subtab @(subTab == "funded" ? "active" : "")"    @onclick='() => subTab = "funded"'>Funded Loans (@detail.Funded.Count)</button>
+                    <button class="subtab @(subTab == "projected" ? "active" : "")" @onclick='() => subTab = "projected"'>Projected Loans (@detail.Projected.Count)</button>
+                </div>
+                @if (subTab == "funded")
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                @SortHeader("LoanNumber", "Loan #", fundedSort, fundedDesc, SortFunded)
+                                @SortHeader("BorrowerLastname", "Borrower", fundedSort, fundedDesc, SortFunded)
+                                @SortHeader("LoanOfficer", "LO", fundedSort, fundedDesc, SortFunded)
+                                @SortHeader("Channel", "Channel", fundedSort, fundedDesc, SortFunded)
+                                @SortHeader("Purpose", "Purpose", fundedSort, fundedDesc, SortFunded)
+                                @SortHeader("LoanAmount", "Amount", fundedSort, fundedDesc, SortFunded, numeric: true)
+                                @SortHeader("InterestRate", "Rate", fundedSort, fundedDesc, SortFunded, numeric: true)
+                                @SortHeader("FundingDate", "Funded", fundedSort, fundedDesc, SortFunded)
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in SortedFunded)
+                            {
+                                <tr>
+                                    <td>@l.LoanNumber</td>
+                                    <td>@l.BorrowerLastname</td>
+                                    <td>@l.LoanOfficer</td>
+                                    <td>@l.Channel</td>
+                                    <td>@l.Purpose</td>
+                                    <td class="num">@FmtMoney(l.LoanAmount ?? 0)</td>
+                                    <td class="num">@(l.InterestRate?.ToString("F3") ?? "")%</td>
+                                    <td>@l.FundingDate?.ToString("yyyy-MM-dd")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                @SortHeader("LoanNumber", "Loan #", projSort, projDesc, SortProj)
+                                @SortHeader("BorrowerLastname", "Borrower", projSort, projDesc, SortProj)
+                                @SortHeader("LoanOfficer", "LO", projSort, projDesc, SortProj)
+                                @SortHeader("Channel", "Channel", projSort, projDesc, SortProj)
+                                @SortHeader("Purpose", "Purpose", projSort, projDesc, SortProj)
+                                @SortHeader("MilestoneStatus", "Milestone", projSort, projDesc, SortProj)
+                                @SortHeader("LoanAmount", "Amount", projSort, projDesc, SortProj, numeric: true)
+                                @SortHeader("EstimatedClosingDate", "Est. Closing", projSort, projDesc, SortProj)
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in SortedProjected)
+                            {
+                                <tr>
+                                    <td>@l.LoanNumber</td>
+                                    <td>@l.BorrowerLastname</td>
+                                    <td>@l.LoanOfficer</td>
+                                    <td>@l.Channel</td>
+                                    <td>@l.Purpose</td>
+                                    <td>@l.MilestoneStatus</td>
+                                    <td class="num">@FmtMoney(l.LoanAmount ?? 0)</td>
+                                    <td>@l.EstimatedClosingDate?.ToString("yyyy-MM-dd")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        }
+    }
+}
+
+@code {
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private string tab = "summary";
+    private string subTab = "funded";
+
+    // Per-tab caches — each fetched the first time its tab is selected after Apply.
+    private MonthlySummary? summary;
+    private PipelineHealth? pipeline;
+    private TurnTimeBundle? turnTimes;
+    private IReadOnlyList<LoanOfficerRow>? loanOfficers;
+    private LoanDetailBundle? detail;
+
+    private bool summaryLoading;
+
+    // Projected by Day: bar (units) + line (volume on secondary axis). Data labels on bars,
+    // tooltip shows both values with proper formatting.
+    // Stacked bar by channel (Retail / HECM / Brokered). Total for each stack is rendered
+    // above the stack via plotOptions.bar.dataLabels.total.
+    private readonly ApexChartOptions<DailyProjection> _byDayOptions = new()
+    {
+        Chart = new Chart { Stacked = true, Toolbar = new Toolbar { Show = false } },
+        Colors = new List<string> { "#1e3a8a", "#14b8a6", "#f59e0b" },
+        DataLabels = new DataLabels { Enabled = false },
+        PlotOptions = new PlotOptions
+        {
+            Bar = new PlotOptionsBar
+            {
+                DataLabels = new PlotOptionsBarDataLabels
+                {
+                    Total = new BarTotalDataLabels { Enabled = true, OffsetY = -6 }
+                }
+            }
+        }
+    };
+
+    private readonly ApexChartOptions<MilestoneBucket> _byMilestoneOptions = new()
+    {
+        Chart = new Chart { Stacked = true, Toolbar = new Toolbar { Show = false } },
+        Colors = new List<string> { "#1e3a8a", "#14b8a6", "#f59e0b" },
+        DataLabels = new DataLabels { Enabled = false },
+        PlotOptions = new PlotOptions
+        {
+            Bar = new PlotOptionsBar
+            {
+                DataLabels = new PlotOptionsBarDataLabels
+                {
+                    Total = new BarTotalDataLabels { Enabled = true, OffsetY = -6 }
+                }
+            }
+        }
+    };
+
+    private readonly ApexChartOptions<TurnTimeSegment> _hBarOptions = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { Horizontal = true } },
+        DataLabels = new DataLabels
+        {
+            Enabled = true,
+            OffsetX = 30,
+            Style = new DataLabelsStyle { Colors = new List<string> { "#0f172a" } },
+            Formatter = "function(val){return val + ' days'}"
+        },
+        Colors = new List<string> { "#0ea5e9" }
+    };
+
+    private readonly ApexChartOptions<TurnTimeTrendPoint> _lineOptions = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 },
+        Markers = new Markers { Size = 5 },
+        Colors = new List<string> { "#1e3a8a", "#0ea5e9" }
+    };
+
+    // ─── Sorting ─────────────────────────────────────────────────────────────
+
+    private string loSort = "TotalVolume";
+    private bool loDesc = true;
+    private string fundedSort = "FundingDate";
+    private bool fundedDesc = true;
+    private string projSort = "EstimatedClosingDate";
+    private bool projDesc = false;
+
+    private void SortLo(string col) { ToggleSort(col, ref loSort, ref loDesc); }
+    private void SortFunded(string col) { ToggleSort(col, ref fundedSort, ref fundedDesc); }
+    private void SortProj(string col) { ToggleSort(col, ref projSort, ref projDesc); }
+
+    private static void ToggleSort(string col, ref string current, ref bool desc)
+    {
+        if (current == col) desc = !desc;
+        else { current = col; desc = true; }
+    }
+
+    private static IEnumerable<T> ApplySort<T>(IEnumerable<T> src, string col, bool desc,
+        Dictionary<string, Func<T, object?>> keys)
+    {
+        var key = keys.GetValueOrDefault(col) ?? keys.Values.First();
+        return desc ? src.OrderByDescending(key, NullFirstComparer.Instance)
+                    : src.OrderBy(key, NullFirstComparer.Instance);
+    }
+
+    private sealed class NullFirstComparer : IComparer<object?>
+    {
+        public static readonly NullFirstComparer Instance = new();
+        public int Compare(object? x, object? y) =>
+            (x, y) switch
+            {
+                (null, null) => 0,
+                (null, _) => -1,
+                (_, null) => 1,
+                _ => Comparer<object>.Default.Compare(x, y)
+            };
+    }
+
+    private static readonly Dictionary<string, Func<LoanOfficerRow, object?>> LoKeys = new()
+    {
+        ["LoanOfficer"] = x => x.LoanOfficer,
+        ["FundedUnits"] = x => x.FundedUnits,
+        ["FundedVolume"] = x => x.FundedVolume,
+        ["ProjectedUnits"] = x => x.ProjectedUnits,
+        ["ProjectedVolume"] = x => x.ProjectedVolume,
+        ["TotalUnits"] = x => x.TotalUnits,
+        ["TotalVolume"] = x => x.TotalVolume,
+    };
+    private static readonly Dictionary<string, Func<FundedLoanDetail, object?>> FundedKeys = new()
+    {
+        ["LoanNumber"] = x => x.LoanNumber,
+        ["BorrowerLastname"] = x => x.BorrowerLastname,
+        ["LoanOfficer"] = x => x.LoanOfficer,
+        ["Channel"] = x => x.Channel,
+        ["Purpose"] = x => x.Purpose,
+        ["LoanAmount"] = x => x.LoanAmount,
+        ["InterestRate"] = x => x.InterestRate,
+        ["FundingDate"] = x => x.FundingDate,
+    };
+    private static readonly Dictionary<string, Func<ProjectedLoanDetail, object?>> ProjKeys = new()
+    {
+        ["LoanNumber"] = x => x.LoanNumber,
+        ["BorrowerLastname"] = x => x.BorrowerLastname,
+        ["LoanOfficer"] = x => x.LoanOfficer,
+        ["Channel"] = x => x.Channel,
+        ["Purpose"] = x => x.Purpose,
+        ["MilestoneStatus"] = x => x.MilestoneStatus,
+        ["LoanAmount"] = x => x.LoanAmount,
+        ["EstimatedClosingDate"] = x => x.EstimatedClosingDate,
+    };
+
+    private IEnumerable<LoanOfficerRow> SortedLoanOfficers =>
+        loanOfficers is null ? Enumerable.Empty<LoanOfficerRow>()
+        : ApplySort(loanOfficers, loSort, loDesc, LoKeys);
+    private IEnumerable<FundedLoanDetail> SortedFunded =>
+        detail is null ? Enumerable.Empty<FundedLoanDetail>()
+        : ApplySort(detail.Funded, fundedSort, fundedDesc, FundedKeys);
+    private IEnumerable<ProjectedLoanDetail> SortedProjected =>
+        detail is null ? Enumerable.Empty<ProjectedLoanDetail>()
+        : ApplySort(detail.Projected, projSort, projDesc, ProjKeys);
+
+    private RenderFragment SortHeader(string col, string label, string current, bool desc,
+        Action<string> onClick, bool numeric = false) => builder =>
+    {
+        var classes = "sortable" + (numeric ? " num" : "") + (current == col ? " sort-active" : "");
+        var arrow = current == col ? (desc ? "\u25BC" : "\u25B2") : "\u2195";
+        builder.OpenElement(0, "th");
+        builder.AddAttribute(1, "class", classes);
+        builder.AddAttribute(2, "onclick", EventCallback.Factory.Create(this, () => onClick(col)));
+        builder.AddContent(3, label);
+        builder.OpenElement(4, "span");
+        builder.AddAttribute(5, "class", "sort-indicator");
+        builder.AddContent(6, arrow);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    protected override Task OnInitializedAsync() => Apply();
+
+    private async Task Apply()
+    {
+        // New period — invalidate every tab's cached data.
+        pipeline = null;
+        turnTimes = null;
+        loanOfficers = null;
+        detail = null;
+        summary = null;
+
+        summaryLoading = true;
+        try
+        {
+            summary = await Svc.GetSummaryAsync(year, month);
+        }
+        finally
+        {
+            summaryLoading = false;
+        }
+
+        // If the user was already viewing a non-summary tab, fire its fetch too.
+        await EnsureTabLoaded(tab);
+    }
+
+    private async Task SelectTab(string next)
+    {
+        tab = next;
+        await EnsureTabLoaded(next);
+    }
+
+    private async Task EnsureTabLoaded(string which)
+    {
+        switch (which)
+        {
+            case "pipeline" when pipeline is null:
+                pipeline = await Svc.GetPipelineAsync(year, month);
+                break;
+            case "turntime" when turnTimes is null:
+                turnTimes = await Svc.GetTurnTimesAsync(year, month);
+                break;
+            case "los" when loanOfficers is null:
+                loanOfficers = await Svc.GetLoanOfficersAsync(year, month);
+                break;
+            case "detail" when detail is null:
+                detail = await Svc.GetDetailAsync(year, month);
+                break;
+        }
+    }
+
+    private static string FmtMoney(decimal v) => $"${v:N0}";
+    private static string FmtDays(double? d) => d is null ? "—" : $"{d:F0} days";
+}
