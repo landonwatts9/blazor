@@ -222,10 +222,10 @@ else
         else
         {
             <div class="kpi-row">
-                <KpiCard Label="AVG APP \u2192 FUND"  Value="@FmtDays(turnTimes.Current.AppToFund)"  SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.AppToFund3Mo)}")" Accent="blue" />
-                <KpiCard Label="AVG LOCK \u2192 FUND" Value="@FmtDays(turnTimes.Current.LockToFund)" SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.LockToFund3Mo)}")" Accent="blue" />
-                <KpiCard Label="AVG UW \u2192 STC"    Value="@FmtDays(turnTimes.Current.UwToStc)"    SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.UwToStc3Mo)}")" Accent="blue" />
-                <KpiCard Label="AVG STC \u2192 DOCS"  Value="@FmtDays(turnTimes.Current.StcToDocs)"  SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.StcToDocs3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG APP → FUND"  Value="@FmtDays(turnTimes.Current.AppToFund)"  SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.AppToFund3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG LOCK → FUND" Value="@FmtDays(turnTimes.Current.LockToFund)" SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.LockToFund3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG UW → STC"    Value="@FmtDays(turnTimes.Current.UwToStc)"    SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.UwToStc3Mo)}")" Accent="blue" />
+                <KpiCard Label="AVG STC → DOCS"  Value="@FmtDays(turnTimes.Current.StcToDocs)"  SubLabel="@($"3-mo avg: {FmtDays(turnTimes.Current.StcToDocs3Mo)}")" Accent="blue" />
             </div>
 
             <div class="card split">
@@ -241,11 +241,11 @@ else
                 <div class="split-half">
                     <h3>Monthly Turn Time Trend <span class="muted">Business days</span></h3>
                     <ApexChart TItem="TurnTimeTrendPoint" Options="_lineOptions" Height="340">
-                        <ApexPointSeries TItem="TurnTimeTrendPoint" Items="turnTimes.Trend" Name="App \u2192 Fund"
+                        <ApexPointSeries TItem="TurnTimeTrendPoint" Items="turnTimes.Trend" Name="App → Fund"
                                          SeriesType="SeriesType.Line"
                                          XValue="@(e => e.Month)"
                                          YValue="@(e => (decimal)(e.AppToFund ?? 0))" />
-                        <ApexPointSeries TItem="TurnTimeTrendPoint" Items="turnTimes.Trend" Name="Lock \u2192 Fund"
+                        <ApexPointSeries TItem="TurnTimeTrendPoint" Items="turnTimes.Trend" Name="Lock → Fund"
                                          SeriesType="SeriesType.Line"
                                          XValue="@(e => e.Month)"
                                          YValue="@(e => (decimal)(e.LockToFund ?? 0))" />
