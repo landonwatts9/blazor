@@ -123,7 +123,7 @@
                 <div class="card split">
                     <div class="split-half">
                         <h3>By Channel <span class="muted">@MonthLabel</span></h3>
-                        <ApexChart TItem="MixBucket" Options="_mixOptions" Height="320">
+                        <ApexChart TItem="MixBucket" Options="_channelMixOptions" Height="320">
                             <ApexPointSeries TItem="MixBucket" Items="mix.ByChannel" Name="Originations"
                                              SeriesType="SeriesType.Bar"
                                              XValue="@(e => e.Label)" YValue="@(e => (decimal)e.OriginationUnits)" />
@@ -134,7 +134,7 @@
                     </div>
                     <div class="split-half">
                         <h3>By Purpose <span class="muted">@MonthLabel</span></h3>
-                        <ApexChart TItem="MixBucket" Options="_mixOptions" Height="320">
+                        <ApexChart TItem="MixBucket" Options="_purposeMixOptions" Height="320">
                             <ApexPointSeries TItem="MixBucket" Items="mix.ByPurpose" Name="Originations"
                                              SeriesType="SeriesType.Bar"
                                              XValue="@(e => e.Label)" YValue="@(e => (decimal)e.OriginationUnits)" />
@@ -244,7 +244,12 @@
     private string loSort = "YtdDollars";
     private bool loDesc = true;
 
-    private readonly ApexChartOptions<MixBucket> _mixOptions = new()
+    // Each ApexChart needs its own options instance — sharing causes the
+    // second chart to fail to render.
+    private readonly ApexChartOptions<MixBucket> _channelMixOptions = MakeMixOptions();
+    private readonly ApexChartOptions<MixBucket> _purposeMixOptions = MakeMixOptions();
+
+    private static ApexChartOptions<MixBucket> MakeMixOptions() => new()
     {
         Chart = new Chart { Toolbar = new Toolbar { Show = false } },
         Colors = new List<string> { "#0B426A", "#0B86AF" },
