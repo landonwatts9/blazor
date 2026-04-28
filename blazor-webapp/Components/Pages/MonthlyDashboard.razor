@@ -143,10 +143,11 @@ else
             </div>
 
             <div class="card">
-                <h3>Pipeline Aging by Milestone</h3>
+                <h3>Pipeline Aging by Milestone <span class="muted">Click a row to see the loans</span></h3>
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th></th>
                             <th>Milestone</th><th>Confidence</th>
                             <th class="num">Loans</th><th class="num">Volume</th>
                             <th class="num">Avg Days</th><th class="num">Min</th><th class="num">Max</th>
@@ -155,7 +156,9 @@ else
                     <tbody>
                         @foreach (var r in pipeline.Milestones)
                         {
-                            <tr class="conf-@r.Confidence.ToLower()">
+                            var open = expandedMilestones.Contains(r.Milestone);
+                            <tr class="conf-@r.Confidence.ToLower() expandable" @onclick="() => ToggleMilestone(r.Milestone)">
+                                <td class="chevron-cell"><span class="chevron @(open ? "open" : "")">▶</span></td>
                                 <td>@r.Milestone</td>
                                 <td><span class="conf-pill @r.Confidence.ToLower()">@r.Confidence</span></td>
                                 <td class="num">@r.Units</td>
@@ -164,6 +167,45 @@ else
                                 <td class="num">@r.MinDays</td>
                                 <td class="num">@r.MaxDays</td>
                             </tr>
+                            @if (open)
+                            {
+                                <tr class="expanded-row">
+                                    <td colspan="8">
+                                        @if (r.Loans.Count == 0)
+                                        {
+                                            <p class="empty">No loans in this milestone.</p>
+                                        }
+                                        else
+                                        {
+                                            <table class="data-table compact nested">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Loan #</th><th>Borrower</th><th>LO</th><th>Processor</th>
+                                                        <th>Channel</th><th>Purpose</th>
+                                                        <th class="num">Amount</th><th>Est. Closing</th><th class="num">Days in MS</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var l in r.Loans)
+                                                    {
+                                                        <tr>
+                                                            <td>@l.LoanNumber</td>
+                                                            <td>@l.BorrowerLastname</td>
+                                                            <td>@l.LoanOfficer</td>
+                                                            <td>@l.Processor</td>
+                                                            <td>@l.Channel</td>
+                                                            <td>@l.Purpose</td>
+                                                            <td class="num">@FmtMoney(l.LoanAmount ?? 0)</td>
+                                                            <td>@l.EstimatedClosingDate?.ToString("yyyy-MM-dd")</td>
+                                                            <td class="num">@l.DaysInMilestone</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        }
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -350,6 +392,14 @@ else
     private LoanDetailBundle? detail;
 
     private bool summaryLoading;
+
+    // Pipeline tab: which milestone rows are expanded to show their loans.
+    private readonly HashSet<string> expandedMilestones = new();
+    private void ToggleMilestone(string milestone)
+    {
+        if (!expandedMilestones.Add(milestone))
+            expandedMilestones.Remove(milestone);
+    }
 
     // Projected by Day: bar (units) + line (volume on secondary axis). Data labels on bars,
     // tooltip shows both values with proper formatting.

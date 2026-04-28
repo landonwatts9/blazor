@@ -179,6 +179,24 @@ WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
   AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
 ORDER BY estimatedclosing_date";
 
+    // Loan-level detail per milestone for the Pipeline Aging table's expandable rows.
+    private const string PipelineLoansSql = @"
+SELECT
+    COALESCE(milestone_status, 'Unknown') AS milestone,
+    loan_number,
+    borrower_lastname,
+    loanofficer_name,
+    processor_name,
+    loanchannel_summary,
+    loan_purpose,
+    COALESCE(loanamount_fundedfinal, loanamount, 0) AS loan_amount,
+    estimatedclosing_date,
+    DATEDIFF(DAY, currentmilestone_date, GETDATE()) AS days_in_milestone
+FROM dbo.EncompassLoan_Gold
+WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
+  AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
+ORDER BY days_in_milestone DESC, loan_number";
+
     // ─── Per-tab fetchers ────────────────────────────────────────────────────
 
     public Task<MonthlySummary> GetSummaryAsync(int year, int month) =>
@@ -237,8 +255,32 @@ ORDER BY estimatedclosing_date";
 
     private async Task<PipelineHealth> FetchPipelineAsync(int year, int month)
     {
-        var rows = await _sql.QueryAsync(PipelineAgingSql,
-            r => new PipelineAgingRow(
+        var p = MonthParams(year, month);
+
+        var aggTask = _sql.QueryAsync(PipelineAgingSql, p);
+        var loansTask = _sql.QueryAsync(PipelineLoansSql,
+            r => (
+                Milestone: r["milestone"] as string ?? "Unknown",
+                Loan: new PipelineLoanRow(
+                    LoanNumber: Convert.ToInt64(r["loan_number"]),
+                    BorrowerLastname: r["borrower_lastname"] as string,
+                    LoanOfficer: r["loanofficer_name"] as string,
+                    Processor: r["processor_name"] as string,
+                    Channel: r["loanchannel_summary"] as string,
+                    Purpose: r["loan_purpose"] as string,
+                    LoanAmount: r["loan_amount"] as decimal?,
+                    EstimatedClosingDate: r["estimatedclosing_date"] as DateTime?,
+                    DaysInMilestone: r["days_in_milestone"] is DBNull ? 0 : Convert.ToInt32(r["days_in_milestone"]))),
+            p);
+
+        await Task.WhenAll(aggTask, loansTask);
+
+        var loansByMilestone = loansTask.Result
+            .GroupBy(x => x.Milestone)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<PipelineLoanRow>)g.Select(x => x.Loan).ToList());
+
+        var rows = aggTask.Result
+            .Select(r => new PipelineAgingRow(
                 Milestone: r["milestone"] as string ?? "Unknown",
                 Confidence: r["confidence"] as string ?? "Low",
                 Units: Convert.ToInt32(r["units"]),
@@ -246,8 +288,10 @@ ORDER BY estimatedclosing_date";
                 AvgDays: r["avg_days"] is DBNull ? 0d : Math.Round(Convert.ToDouble(r["avg_days"]), 1),
                 MinDays: r["min_days"] is DBNull ? 0 : Convert.ToInt32(r["min_days"]),
                 MaxDays: r["max_days"] is DBNull ? 0 : Convert.ToInt32(r["max_days"]),
-                StaleCount: r["stale_count"] is DBNull ? 0 : Convert.ToInt32(r["stale_count"])),
-            MonthParams(year, month));
+                StaleCount: r["stale_count"] is DBNull ? 0 : Convert.ToInt32(r["stale_count"]),
+                Loans: loansByMilestone.GetValueOrDefault(r["milestone"] as string ?? "Unknown",
+                    Array.Empty<PipelineLoanRow>())))
+            .ToList();
 
         return new PipelineHealth(
             Milestones: rows,

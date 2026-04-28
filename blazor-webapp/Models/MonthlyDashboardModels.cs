@@ -28,7 +28,19 @@ public record PipelineAgingRow(
     double AvgDays,
     int MinDays,
     int MaxDays,
-    int StaleCount);
+    int StaleCount,
+    IReadOnlyList<PipelineLoanRow> Loans);
+
+public record PipelineLoanRow(
+    long LoanNumber,
+    string? BorrowerLastname,
+    string? LoanOfficer,
+    string? Processor,
+    string? Channel,
+    string? Purpose,
+    decimal? LoanAmount,
+    DateTime? EstimatedClosingDate,
+    int DaysInMilestone);
 
 public record PipelineHealth(
     IReadOnlyList<PipelineAgingRow> Milestones,
