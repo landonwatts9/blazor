@@ -82,13 +82,14 @@
     background: #fff; border-radius: 8px; padding: 1rem 1.25rem;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     margin-bottom: 1rem;
+    overflow-x: auto;
 }
 .card h3 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: #0f172a; }
 .card h3 .muted { font-size: 0.78rem; color: #64748b; font-weight: 400; margin-left: 0.5rem; }
 .card.split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.data-table ::deep th, .data-table ::deep td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.data-table ::deep th, .data-table ::deep td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
 /* ::deep is needed so this rule matches <th> elements created via the
    SortHeader RenderFragment helper (those don't carry the scoped-CSS attribute). */
 .data-table ::deep th {
@@ -97,11 +98,19 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    padding: 0.7rem 0.85rem;
-    font-size: 0.82rem;
+    padding: 0.55rem 0.5rem;
+    font-size: 0.78rem;
     letter-spacing: 0.02em;
     border-bottom: 1px solid #0B426A;
 }
+
+/* The 11-column LO Production table is wider than the others; tighten
+   it further so it fits a typical viewport without horizontal scroll. */
+.lo-prod-table ::deep th, .lo-prod-table ::deep td {
+    padding: 0.4rem 0.4rem;
+}
+.lo-prod-table ::deep th { font-size: 0.74rem; padding: 0.55rem 0.4rem; }
+.lo-prod-table { font-size: 0.82rem; }
 .data-table ::deep td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .data-table ::deep th.num { text-align: center; font-variant-numeric: tabular-nums; }
 .data-table ::deep tbody tr:hover { background: #f9fafb; }
