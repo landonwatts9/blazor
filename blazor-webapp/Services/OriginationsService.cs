@@ -107,24 +107,24 @@ SELECT
     (SELECT COUNT(*) FROM cohort WHERE underwritingapproval_date IS NOT NULL)   AS approved,
     (SELECT COUNT(*) FROM cohort WHERE funding_date IS NOT NULL)             AS funded";
 
-    // Leaderboard: top 25 LOs by funded volume YTD, with prior-year YTD same range for ±.
+    // Leaderboard: top 25 LOs by YTD originations, with prior-year YTD same range for ±.
     private const string LeaderboardSql = @"
 WITH cur AS (
-    SELECT COALESCE(lo.lo_name, g.loanofficer_name, '(Unassigned)') AS lo,
+    SELECT COALESCE(lo.lo_name, o.team_name, '(Unassigned)') AS lo,
            COUNT(*) AS units,
-           SUM(g.loanamount_fundedfinal) AS volume
-    FROM dbo.EncompassLoan_Gold g
-    LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
-    WHERE g.funded_flag = 1 AND g.funding_date >= @yStart AND g.funding_date < @yEndForLeader
-    GROUP BY COALESCE(lo.lo_name, g.loanofficer_name, '(Unassigned)')
+           SUM(o.originated_amount) AS volume
+    FROM dbo.vw_originations o
+    LEFT JOIN dbo.DIM_LoanOfficer lo ON o.loanofficer_nmlsid = lo.nmls_id
+    WHERE o.hmda_applicationdate >= @yStart AND o.hmda_applicationdate < @yEndForLeader
+    GROUP BY COALESCE(lo.lo_name, o.team_name, '(Unassigned)')
 ), prior AS (
-    SELECT COALESCE(lo.lo_name, g.loanofficer_name, '(Unassigned)') AS lo,
+    SELECT COALESCE(lo.lo_name, o.team_name, '(Unassigned)') AS lo,
            COUNT(*) AS units,
-           SUM(g.loanamount_fundedfinal) AS volume
-    FROM dbo.EncompassLoan_Gold g
-    LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
-    WHERE g.funded_flag = 1 AND g.funding_date >= @priorYStart AND g.funding_date < @priorYEndForLeader
-    GROUP BY COALESCE(lo.lo_name, g.loanofficer_name, '(Unassigned)')
+           SUM(o.originated_amount) AS volume
+    FROM dbo.vw_originations o
+    LEFT JOIN dbo.DIM_LoanOfficer lo ON o.loanofficer_nmlsid = lo.nmls_id
+    WHERE o.hmda_applicationdate >= @priorYStart AND o.hmda_applicationdate < @priorYEndForLeader
+    GROUP BY COALESCE(lo.lo_name, o.team_name, '(Unassigned)')
 )
 SELECT TOP 25
     c.lo,
@@ -134,7 +134,7 @@ SELECT TOP 25
     ISNULL(p.volume, 0) AS prior_volume
 FROM cur c
 LEFT JOIN prior p ON p.lo = c.lo
-ORDER BY c.volume DESC";
+ORDER BY c.units DESC, c.volume DESC";
 
     // Trend: 12 months ending in the selected month. Two metrics per month:
     // origination units (apps with hmda_applicationdate in that month) +
