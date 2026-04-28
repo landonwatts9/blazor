@@ -19,6 +19,7 @@ public class Program
         builder.Services.AddScoped<HistoricalService>();
         builder.Services.AddScoped<ProcessorService>();
         builder.Services.AddScoped<MonthlyDashboardService>();
+        builder.Services.AddScoped<OriginationsService>();
         builder.Services.AddApexCharts();
 
         var app = builder.Build();

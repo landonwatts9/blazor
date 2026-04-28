@@ -1,0 +1,384 @@
+@page "/originations"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@using ApexCharts
+@inject OriginationsService Svc
+
+<PageTitle>Originations</PageTitle>
+
+<div class="orig-layout">
+    <aside class="orig-sidebar">
+        <div class="brand">SAM Reporting</div>
+
+        <div class="picker">
+            <label>Year</label>
+            <select @bind="year">
+                @for (var y = DateTime.Today.Year; y >= DateTime.Today.Year - 5; y--)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+        </div>
+        <div class="picker">
+            <label>Month</label>
+            <select @bind="month">
+                @for (var m = 1; m <= 12; m++)
+                {
+                    <option value="@m">@(new DateTime(2000, m, 1).ToString("MMMM"))</option>
+                }
+            </select>
+        </div>
+        <div class="picker">
+            <label>Week ending</label>
+            <InputDate @bind-Value="weekEnding" />
+        </div>
+
+        <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
+
+        @if (landing is not null)
+        {
+            <div class="kpi-block">
+                <div class="kpi-block-title">Origination Summary</div>
+                <div class="sidebar-kpi"><div class="value">@landing.Kpis.CwUnits.ToString("N0")</div><div class="label">CW Units</div><div class="sub">@WeekRangeLabel</div></div>
+                <div class="sidebar-kpi"><div class="value">@FmtMoneyShort(landing.Kpis.CwVolume)</div><div class="label">CW Volume</div><div class="sub">@WeekRangeLabel</div></div>
+                <div class="sidebar-kpi"><div class="value">@landing.Kpis.MtdUnits.ToString("N0")</div><div class="label">MTD Units</div><div class="sub">@MonthLabel</div></div>
+                <div class="sidebar-kpi"><div class="value">@FmtMoneyShort(landing.Kpis.MtdVolume)</div><div class="label">MTD Volume</div><div class="sub">@MonthLabel</div></div>
+            </div>
+        }
+    </aside>
+
+    <main class="orig-content">
+        <div class="tabs">
+            <button class="tab @(tab == "lo" ? "active" : "")"          @onclick='() => SelectTab("lo")'>LO Production</button>
+            <button class="tab @(tab == "mix" ? "active" : "")"         @onclick='() => SelectTab("mix")'>Channel & Purpose</button>
+            <button class="tab @(tab == "funnel" ? "active" : "")"      @onclick='() => SelectTab("funnel")'>Pull-Through Funnel</button>
+            <button class="tab @(tab == "leaderboard" ? "active" : "")" @onclick='() => SelectTab("leaderboard")'>Leaderboard</button>
+            <button class="tab @(tab == "trend" ? "active" : "")"       @onclick='() => SelectTab("trend")'>Monthly Trend</button>
+        </div>
+
+        @if (landing is null)
+        {
+            <p class="empty">@(loading ? "Loading..." : "Select a period and click Apply.")</p>
+        }
+        else if (tab == "lo")
+        {
+            <div class="card">
+                <h3>Loan Officer Production</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            @SortHeader("LoanOfficer",      "LO",            loSort, loDesc, ToggleLoSort)
+                            @SortHeader("CwUnits",          "CW Units",      loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("CwDollars",        "CW $",          loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("MtdUnits",         "MTD Units",     loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("MtdDollars",       "MTD $",         loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("YtdUnits",         "YTD Units",     loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("YtdDollars",       "YTD $",         loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("MtdFundedUnits",   "MTD Funded",    loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("MtdFundedDollars", "MTD Funded $",  loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("YtdFundedUnits",   "YTD Funded",    loSort, loDesc, ToggleLoSort, numeric: true)
+                            @SortHeader("YtdFundedDollars", "YTD Funded $",  loSort, loDesc, ToggleLoSort, numeric: true)
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in SortedRows)
+                        {
+                            <tr>
+                                <td>@r.LoanOfficer</td>
+                                <td class="num">@CellInt(r.CwUnits)</td>
+                                <td class="num">@CellMoney(r.CwDollars)</td>
+                                <td class="num">@CellInt(r.MtdUnits)</td>
+                                <td class="num">@CellMoney(r.MtdDollars)</td>
+                                <td class="num">@CellInt(r.YtdUnits)</td>
+                                <td class="num">@CellMoney(r.YtdDollars)</td>
+                                <td class="num">@CellInt(r.MtdFundedUnits)</td>
+                                <td class="num">@CellMoney(r.MtdFundedDollars)</td>
+                                <td class="num">@CellInt(r.YtdFundedUnits)</td>
+                                <td class="num">@CellMoney(r.YtdFundedDollars)</td>
+                            </tr>
+                        }
+                        <tr class="totals-row">
+                            <td><strong>Total</strong></td>
+                            <td class="num"><strong>@landing.Rows.Sum(x => x.CwUnits)</strong></td>
+                            <td class="num"><strong>@FmtMoney(landing.Rows.Sum(x => x.CwDollars))</strong></td>
+                            <td class="num"><strong>@landing.Rows.Sum(x => x.MtdUnits)</strong></td>
+                            <td class="num"><strong>@FmtMoney(landing.Rows.Sum(x => x.MtdDollars))</strong></td>
+                            <td class="num"><strong>@landing.Rows.Sum(x => x.YtdUnits)</strong></td>
+                            <td class="num"><strong>@FmtMoney(landing.Rows.Sum(x => x.YtdDollars))</strong></td>
+                            <td class="num"><strong>@landing.Rows.Sum(x => x.MtdFundedUnits)</strong></td>
+                            <td class="num"><strong>@FmtMoney(landing.Rows.Sum(x => x.MtdFundedDollars))</strong></td>
+                            <td class="num"><strong>@landing.Rows.Sum(x => x.YtdFundedUnits)</strong></td>
+                            <td class="num"><strong>@FmtMoney(landing.Rows.Sum(x => x.YtdFundedDollars))</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (tab == "mix")
+        {
+            @if (mix is null) { <p class="empty">Loading mix...</p> }
+            else
+            {
+                <div class="card split">
+                    <div class="split-half">
+                        <h3>By Channel <span class="muted">@MonthLabel</span></h3>
+                        <ApexChart TItem="MixBucket" Options="_mixOptions" Height="320">
+                            <ApexPointSeries TItem="MixBucket" Items="mix.ByChannel" Name="Originations"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Label)" YValue="@(e => (decimal)e.OriginationUnits)" />
+                            <ApexPointSeries TItem="MixBucket" Items="mix.ByChannel" Name="Funded"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Label)" YValue="@(e => (decimal)e.FundedUnits)" />
+                        </ApexChart>
+                    </div>
+                    <div class="split-half">
+                        <h3>By Purpose <span class="muted">@MonthLabel</span></h3>
+                        <ApexChart TItem="MixBucket" Options="_mixOptions" Height="320">
+                            <ApexPointSeries TItem="MixBucket" Items="mix.ByPurpose" Name="Originations"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Label)" YValue="@(e => (decimal)e.OriginationUnits)" />
+                            <ApexPointSeries TItem="MixBucket" Items="mix.ByPurpose" Name="Funded"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Label)" YValue="@(e => (decimal)e.FundedUnits)" />
+                        </ApexChart>
+                    </div>
+                </div>
+            }
+        }
+        else if (tab == "funnel")
+        {
+            @if (funnel is null) { <p class="empty">Loading funnel...</p> }
+            else
+            {
+                <div class="card">
+                    <h3>Pull-Through Funnel <span class="muted">apps taken in @MonthLabel</span></h3>
+                    <table class="data-table">
+                        <thead><tr><th>Stage</th><th class="num">Count</th><th class="num">% of Apps</th></tr></thead>
+                        <tbody>
+                            @foreach (var s in funnel)
+                            {
+                                <tr>
+                                    <td>@s.Label</td>
+                                    <td class="num">@s.Count</td>
+                                    <td class="num">@s.PctOfApps.ToString("F1")%</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <p class="muted">Stage counts reflect the cohort of apps taken in @MonthLabel; later stages are the same loans that have since reached that milestone.</p>
+                </div>
+            }
+        }
+        else if (tab == "leaderboard")
+        {
+            @if (leaderboard is null) { <p class="empty">Loading leaderboard...</p> }
+            else
+            {
+                <div class="card">
+                    <h3>Top Producers (YTD funded) <span class="muted">vs same period @(year - 1)</span></h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th><th>LO</th>
+                                <th class="num">YTD Units</th><th class="num">YTD Volume</th>
+                                <th class="num">vs PY Units</th><th class="num">vs PY Volume</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in leaderboard)
+                            {
+                                <tr>
+                                    <td>#@r.Rank</td>
+                                    <td>@r.LoanOfficer</td>
+                                    <td class="num">@r.Units</td>
+                                    <td class="num">@FmtMoney(r.Volume)</td>
+                                    <td class="num @(r.UnitsDelta >= 0 ? "delta-pos" : "delta-neg")">
+                                        @(r.UnitsDelta >= 0 ? "+" : "")@r.UnitsDelta
+                                    </td>
+                                    <td class="num @(r.VolumeDelta >= 0 ? "delta-pos" : "delta-neg")">
+                                        @(r.VolumeDelta >= 0 ? "+" : "")@FmtMoney(r.VolumeDelta)
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        else if (tab == "trend")
+        {
+            @if (trend is null) { <p class="empty">Loading trend...</p> }
+            else
+            {
+                <div class="card">
+                    <h3>12-Month Trend <span class="muted">ending @MonthLabel</span></h3>
+                    <ApexChart TItem="MonthlyTrendPoint" Options="_trendOptions" Height="380">
+                        <ApexPointSeries TItem="MonthlyTrendPoint" Items="trend" Name="Originations"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="@(e => e.Month)" YValue="@(e => (decimal)e.OriginationUnits)" />
+                        <ApexPointSeries TItem="MonthlyTrendPoint" Items="trend" Name="Funded"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="@(e => e.Month)" YValue="@(e => (decimal)e.FundedUnits)" />
+                    </ApexChart>
+                </div>
+            }
+        }
+    </main>
+</div>
+
+@code {
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private DateTime weekEnding = DateTime.Today;
+    private bool loading;
+    private string tab = "lo";
+
+    private OriginationsLanding? landing;
+    private ChannelPurposeMix? mix;
+    private IReadOnlyList<FunnelStage>? funnel;
+    private IReadOnlyList<LeaderboardRow>? leaderboard;
+    private IReadOnlyList<MonthlyTrendPoint>? trend;
+
+    private string loSort = "YtdDollars";
+    private bool loDesc = true;
+
+    private readonly ApexChartOptions<MixBucket> _mixOptions = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Colors = new List<string> { "#1e3a8a", "#0ea5e9" },
+        DataLabels = new DataLabels { Enabled = true },
+        Legend = new Legend { Position = LegendPosition.Top },
+    };
+
+    private readonly ApexChartOptions<MonthlyTrendPoint> _trendOptions = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 },
+        Markers = new Markers { Size = 5 },
+        Colors = new List<string> { "#1e3a8a", "#0ea5e9" },
+        Legend = new Legend { Position = LegendPosition.Top },
+    };
+
+    protected override Task OnInitializedAsync() => Apply();
+
+    private async Task Apply()
+    {
+        landing = null;
+        mix = null;
+        funnel = null;
+        leaderboard = null;
+        trend = null;
+        loading = true;
+        try
+        {
+            landing = await Svc.GetLandingAsync(year, month, weekEnding);
+        }
+        finally
+        {
+            loading = false;
+        }
+        await EnsureTabLoaded(tab);
+    }
+
+    private async Task SelectTab(string next)
+    {
+        tab = next;
+        await EnsureTabLoaded(next);
+    }
+
+    private async Task EnsureTabLoaded(string which)
+    {
+        switch (which)
+        {
+            case "mix"         when mix is null:        mix = await Svc.GetMixAsync(year, month); break;
+            case "funnel"      when funnel is null:     funnel = await Svc.GetFunnelAsync(year, month); break;
+            case "leaderboard" when leaderboard is null: leaderboard = await Svc.GetLeaderboardAsync(year); break;
+            case "trend"       when trend is null:      trend = await Svc.GetTrendAsync(year, month); break;
+        }
+    }
+
+    // ─── Sort helpers ────────────────────────────────────────────────────────
+
+    private static readonly Dictionary<string, Func<LoProductionRow, object?>> LoKeys = new()
+    {
+        ["LoanOfficer"]      = x => x.LoanOfficer,
+        ["CwUnits"]          = x => x.CwUnits,
+        ["CwDollars"]        = x => x.CwDollars,
+        ["MtdUnits"]         = x => x.MtdUnits,
+        ["MtdDollars"]       = x => x.MtdDollars,
+        ["YtdUnits"]         = x => x.YtdUnits,
+        ["YtdDollars"]       = x => x.YtdDollars,
+        ["MtdFundedUnits"]   = x => x.MtdFundedUnits,
+        ["MtdFundedDollars"] = x => x.MtdFundedDollars,
+        ["YtdFundedUnits"]   = x => x.YtdFundedUnits,
+        ["YtdFundedDollars"] = x => x.YtdFundedDollars,
+    };
+
+    private void ToggleLoSort(string col)
+    {
+        if (loSort == col) loDesc = !loDesc;
+        else { loSort = col; loDesc = true; }
+    }
+
+    private IEnumerable<LoProductionRow> SortedRows
+    {
+        get
+        {
+            if (landing is null) return Enumerable.Empty<LoProductionRow>();
+            var key = LoKeys.GetValueOrDefault(loSort) ?? LoKeys["YtdDollars"];
+            return loDesc ? landing.Rows.OrderByDescending(key, NullFirstComparer.Instance)
+                          : landing.Rows.OrderBy(key, NullFirstComparer.Instance);
+        }
+    }
+
+    private sealed class NullFirstComparer : IComparer<object?>
+    {
+        public static readonly NullFirstComparer Instance = new();
+        public int Compare(object? x, object? y) => (x, y) switch
+        {
+            (null, null) => 0,
+            (null, _)    => -1,
+            (_, null)    => 1,
+            _            => Comparer<object>.Default.Compare(x, y)
+        };
+    }
+
+    private RenderFragment SortHeader(string col, string label, string current, bool desc,
+        Action<string> onClick, bool numeric = false) => builder =>
+    {
+        var classes = "sortable" + (numeric ? " num" : "") + (current == col ? " sort-active" : "");
+        var arrow = current == col ? (desc ? "▼" : "▲") : "↕";
+        builder.OpenElement(0, "th");
+        builder.AddAttribute(1, "class", classes);
+        builder.AddAttribute(2, "onclick", EventCallback.Factory.Create(this, () => onClick(col)));
+        builder.AddContent(3, label);
+        builder.OpenElement(4, "span");
+        builder.AddAttribute(5, "class", "sort-indicator");
+        builder.AddContent(6, arrow);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    // ─── Formatting ──────────────────────────────────────────────────────────
+
+    private string MonthLabel => new DateTime(year, month, 1).ToString("MMM yyyy");
+    private string WeekRangeLabel
+    {
+        get
+        {
+            var end = weekEnding.Date;
+            var start = end.AddDays(-6);
+            return $"{start:MM/dd}–{end:MM/dd}";
+        }
+    }
+
+    private static string FmtMoney(decimal v) => v == 0m ? "" : $"${v:N0}";
+    private static string FmtMoneyShort(decimal v) =>
+        Math.Abs(v) >= 1_000_000m ? $"${v / 1_000_000m:F1}M"
+        : Math.Abs(v) >= 1_000m   ? $"${v / 1_000m:F0}K"
+        : $"${v:N0}";
+
+    private static string CellInt(int n) => n == 0 ? "" : n.ToString("N0");
+    private static string CellMoney(decimal v) => v == 0m ? "" : $"${v:N0}";
+}
