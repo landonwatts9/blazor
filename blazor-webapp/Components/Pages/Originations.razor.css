@@ -28,7 +28,7 @@
     padding: 0.4rem 0.4rem;
 }
 .week-arrow {
-    background: #f1f5f9; border: 1px solid #cbd5e1; color: #0b3a67;
+    background: #f1f5f9; border: 1px solid #cbd5e1; color: #0B426A;
     padding: 0.25rem 0.45rem; border-radius: 6px;
     font-size: 0.95rem; line-height: 1; cursor: pointer; font-weight: 600;
 }
@@ -39,10 +39,10 @@
 }
 
 .btn-apply {
-    background: #0b3a67; color: #fff; border: none; padding: 0.5rem 1.2rem;
+    background: #0B426A; color: #fff; border: none; padding: 0.5rem 1.2rem;
     border-radius: 6px; font-weight: 600; cursor: pointer;
 }
-.btn-apply:hover:not(:disabled) { background: #0a4e8a; }
+.btn-apply:hover:not(:disabled) { background: #0B86AF; }
 .btn-apply:disabled { opacity: 0.6; cursor: wait; }
 
 .kpi-row {
@@ -53,7 +53,7 @@
 }
 .kpi-tile {
     background: #f8fafc;
-    border-left: 4px solid #0b3a67;
+    border-left: 4px solid #0B426A;
     padding: 0.5rem 0.9rem;
     border-radius: 6px;
     min-width: 110px;
@@ -73,8 +73,8 @@
     padding: 0.6rem 1.1rem; font-weight: 500; color: #64748b; cursor: pointer;
     border-bottom: 3px solid transparent; margin-bottom: -1px;
 }
-.tab:hover { color: #0b3a67; }
-.tab.active { color: #0b3a67; border-bottom-color: #0b3a67; font-weight: 600; }
+.tab:hover { color: #0B426A; }
+.tab.active { color: #0B426A; border-bottom-color: #0B426A; font-weight: 600; }
 
 .empty { padding: 2rem; color: #64748b; }
 
@@ -90,7 +90,7 @@
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .data-table th, .data-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
 .data-table th {
-    background: #0b3a67;
+    background: #0B426A;
     color: #fff;
     font-weight: 600;
     text-align: center;
@@ -105,7 +105,7 @@
 
 .data-table tr.totals-row td {
     background: #f1f5f9;
-    border-top: 2px solid #0b3a67;
+    border-top: 2px solid #0B426A;
     border-bottom: none;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .data-table th.sortable { cursor: pointer; user-select: none; }
-.data-table th.sortable:hover { background: #0a4e8a; }
+.data-table th.sortable:hover { background: #0B86AF; }
 .data-table th .sort-indicator { display: inline-block; margin-left: 0.25rem; color: #cbd5e1; font-size: 0.7em; }
 .data-table th.sort-active .sort-indicator { color: #fff; }
 
