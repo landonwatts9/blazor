@@ -34,7 +34,7 @@
                 <InputDate @bind-Value="weekEnding" @bind-Value:after="SnapWeekEnd" />
                 <button class="week-arrow" type="button" @onclick="() => ShiftWeek(1)" title="Next week">›</button>
             </div>
-            <div class="week-range">@WeekRangeLabel (Sun–Sat)</div>
+            <div class="week-range">@WeekRangeLabel</div>
         </div>
         <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
 
