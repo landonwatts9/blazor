@@ -88,10 +88,10 @@
 .card.split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.data-table th, .data-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
-.data-table th,
-.data-table thead th,
-.lo-prod-table thead th {
+.data-table ::deep th, .data-table ::deep td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+/* ::deep is needed so this rule matches <th> elements created via the
+   SortHeader RenderFragment helper (those don't carry the scoped-CSS attribute). */
+.data-table ::deep th {
     background-color: #0B426A !important;
     color: #fff !important;
     font-weight: 600;
@@ -102,28 +102,28 @@
     letter-spacing: 0.02em;
     border-bottom: 1px solid #0B426A;
 }
-.data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.data-table th.num { text-align: center; font-variant-numeric: tabular-nums; }
-.data-table tbody tr:hover { background: #f9fafb; }
+.data-table ::deep td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table ::deep th.num { text-align: center; font-variant-numeric: tabular-nums; }
+.data-table ::deep tbody tr:hover { background: #f9fafb; }
 
-.data-table tr.totals-row td {
+.data-table ::deep tr.totals-row td {
     background: #f1f5f9;
     border-top: 2px solid #0B426A;
     border-bottom: none;
 }
 
 /* Zebra striping for the LO Production table */
-.lo-prod-table tbody tr:nth-child(even):not(.totals-row) td {
+.lo-prod-table ::deep tbody tr:nth-child(even):not(.totals-row) td {
     background: #f8fafc;
 }
-.lo-prod-table tbody tr:hover:not(.totals-row) td {
+.lo-prod-table ::deep tbody tr:hover:not(.totals-row) td {
     background: #eef2f7;
 }
 
-.data-table th.sortable { cursor: pointer; user-select: none; }
-.data-table th.sortable:hover { background: #0B86AF; }
-.data-table th .sort-indicator { display: inline-block; margin-left: 0.25rem; color: #cbd5e1; font-size: 0.7em; }
-.data-table th.sort-active .sort-indicator { color: #fff; }
+.data-table ::deep th.sortable { cursor: pointer; user-select: none; }
+.data-table ::deep th.sortable:hover { background: #0B86AF !important; }
+.data-table ::deep th .sort-indicator { display: inline-block; margin-left: 0.25rem; color: #cbd5e1; font-size: 0.7em; }
+.data-table ::deep th.sort-active .sort-indicator { color: #fff; }
 
 .delta-pos { color: #16a34a; }
 .delta-neg { color: #dc2626; }
