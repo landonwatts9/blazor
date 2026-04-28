@@ -27,9 +27,14 @@
                 }
             </select>
         </div>
-        <div class="picker">
+        <div class="picker week-picker">
             <label>Week ending</label>
-            <InputDate @bind-Value="weekEnding" />
+            <div class="week-controls">
+                <button class="week-arrow" type="button" @onclick="() => ShiftWeek(-1)" title="Previous week">‹</button>
+                <InputDate @bind-Value="weekEnding" @bind-Value:after="SnapWeekEnd" />
+                <button class="week-arrow" type="button" @onclick="() => ShiftWeek(1)" title="Next week">›</button>
+            </div>
+            <div class="week-range">@WeekRangeLabel (Sun–Sat)</div>
         </div>
         <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
 
@@ -226,7 +231,8 @@
 @code {
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
-    private DateTime weekEnding = DateTime.Today;
+    // Default to the Saturday of the current calendar week.
+    private DateTime weekEnding = DateTime.Today.AddDays(6 - (int)DateTime.Today.DayOfWeek);
     private bool loading;
     private string tab = "lo";
 
@@ -282,6 +288,16 @@
         tab = next;
         await EnsureTabLoaded(next);
     }
+
+    // Snap any picked date to the Saturday that ends its calendar week (Sun–Sat).
+    private void SnapWeekEnd()
+    {
+        var d = weekEnding.Date;
+        var addDays = 6 - (int)d.DayOfWeek;
+        weekEnding = d.AddDays(addDays);
+    }
+
+    private void ShiftWeek(int weeks) => weekEnding = weekEnding.AddDays(weeks * 7);
 
     private async Task EnsureTabLoaded(string which)
     {
