@@ -109,6 +109,14 @@
     border-bottom: none;
 }
 
+/* Zebra striping for the LO Production table */
+.lo-prod-table tbody tr:nth-child(even):not(.totals-row) td {
+    background: #f8fafc;
+}
+.lo-prod-table tbody tr:hover:not(.totals-row) td {
+    background: #eef2f7;
+}
+
 .data-table th.sortable { cursor: pointer; user-select: none; }
 .data-table th.sortable:hover { background: #0a4e8a; }
 .data-table th .sort-indicator { display: inline-block; margin-left: 0.25rem; color: #cbd5e1; font-size: 0.7em; }
