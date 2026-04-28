@@ -196,8 +196,14 @@ ORDER BY estimatedclosing_date";
                 Convert.ToInt32(r["units"]),
                 Convert.ToDecimal(r["volume"] ?? 0m)),
             p);
+        var fundedByLoTask = _sql.QueryAsync(LoSummaryFundedSql,
+            r => new BreakdownBucket(
+                r["lo"] as string is { Length: > 0 } name ? name : "(Unassigned)",
+                Convert.ToInt32(r["units"]),
+                Convert.ToDecimal(r["volume"] ?? 0m)),
+            p);
 
-        await Task.WhenAll(kpiTask, byDayTask, byMsTask, channelsTask, purposesTask);
+        await Task.WhenAll(kpiTask, byDayTask, byMsTask, channelsTask, purposesTask, fundedByLoTask);
 
         var k = kpiTask.Result.Single();
         var kpis = new MonthlyKpis(
@@ -206,9 +212,15 @@ ORDER BY estimatedclosing_date";
             ProjectedUnits: Convert.ToInt32(k["proj_units"] ?? 0),
             ProjectedVolume: Convert.ToDecimal(k["proj_volume"] ?? 0m));
 
+        var fundedByLo = fundedByLoTask.Result
+            .OrderByDescending(b => b.Units)
+            .ThenByDescending(b => b.Volume)
+            .ToList();
+
         return new MonthlySummary(
             kpis, byDayTask.Result, byMsTask.Result,
-            new ChannelPurposeBreakdown(channelsTask.Result, purposesTask.Result));
+            new ChannelPurposeBreakdown(channelsTask.Result, purposesTask.Result),
+            fundedByLo);
     }
 
     public async Task<PipelineHealth> GetPipelineAsync(int year, int month)
