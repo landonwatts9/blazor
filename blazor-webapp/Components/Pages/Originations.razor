@@ -8,9 +8,7 @@
 <PageTitle>Originations</PageTitle>
 
 <div class="orig-layout">
-    <aside class="orig-sidebar">
-        <div class="brand">SAM Reporting</div>
-
+    <header class="orig-header">
         <div class="picker">
             <label>Year</label>
             <select @bind="year">
@@ -33,20 +31,18 @@
             <label>Week ending</label>
             <InputDate @bind-Value="weekEnding" />
         </div>
-
         <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
 
         @if (landing is not null)
         {
-            <div class="kpi-block">
-                <div class="kpi-block-title">Origination Summary</div>
-                <div class="sidebar-kpi"><div class="value">@landing.Kpis.CwUnits.ToString("N0")</div><div class="label">CW Units</div><div class="sub">@WeekRangeLabel</div></div>
-                <div class="sidebar-kpi"><div class="value">@FmtMoneyShort(landing.Kpis.CwVolume)</div><div class="label">CW Volume</div><div class="sub">@WeekRangeLabel</div></div>
-                <div class="sidebar-kpi"><div class="value">@landing.Kpis.MtdUnits.ToString("N0")</div><div class="label">MTD Units</div><div class="sub">@MonthLabel</div></div>
-                <div class="sidebar-kpi"><div class="value">@FmtMoneyShort(landing.Kpis.MtdVolume)</div><div class="label">MTD Volume</div><div class="sub">@MonthLabel</div></div>
+            <div class="kpi-row">
+                <div class="kpi-tile"><div class="label">CW Units</div><div class="value">@landing.Kpis.CwUnits.ToString("N0")</div><div class="sub">@WeekRangeLabel</div></div>
+                <div class="kpi-tile"><div class="label">CW Volume</div><div class="value">@FmtMoneyShort(landing.Kpis.CwVolume)</div><div class="sub">@WeekRangeLabel</div></div>
+                <div class="kpi-tile"><div class="label">MTD Units</div><div class="value">@landing.Kpis.MtdUnits.ToString("N0")</div><div class="sub">@MonthLabel</div></div>
+                <div class="kpi-tile"><div class="label">MTD Volume</div><div class="value">@FmtMoneyShort(landing.Kpis.MtdVolume)</div><div class="sub">@MonthLabel</div></div>
             </div>
         }
-    </aside>
+    </header>
 
     <main class="orig-content">
         <div class="tabs">
