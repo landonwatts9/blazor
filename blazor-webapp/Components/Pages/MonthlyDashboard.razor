@@ -121,18 +121,6 @@ else
             </div>
         </div>
 
-        <div class="card">
-            <h3>MTD Funded by Loan Officer</h3>
-            <table class="data-table compact">
-                <thead><tr><th>Loan Officer</th><th class="num">Units</th><th class="num">Volume</th></tr></thead>
-                <tbody>
-                    @foreach (var lo in summary.FundedByLo)
-                    {
-                        <tr><td>@lo.Label</td><td class="num">@lo.Units</td><td class="num">@FmtMoney(lo.Volume)</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
     }
 
     @if (tab == "pipeline")

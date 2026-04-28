@@ -96,8 +96,7 @@ public record MonthlySummary(
     MonthlyKpis Kpis,
     IReadOnlyList<DailyProjection> ProjectedByDay,
     IReadOnlyList<MilestoneBucket> ProjectedByMilestone,
-    ChannelPurposeBreakdown ChannelPurpose,
-    IReadOnlyList<BreakdownBucket> FundedByLo);
+    ChannelPurposeBreakdown ChannelPurpose);
 
 public record TurnTimeBundle(
     TurnTimes Current,
