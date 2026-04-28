@@ -1,12 +1,20 @@
+using Microsoft.Extensions.Caching.Memory;
 using SamReporting.Models;
 
 namespace SamReporting.Services;
 
 public class HistoricalService
 {
-    private readonly SqlService _sql;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public HistoricalService(SqlService sql) => _sql = sql;
+    private readonly SqlService _sql;
+    private readonly IMemoryCache _cache;
+
+    public HistoricalService(SqlService sql, IMemoryCache cache)
+    {
+        _sql = sql;
+        _cache = cache;
+    }
 
     private const string ProductSql = @"
 SELECT
@@ -26,7 +34,7 @@ SELECT
     END AS product,
     COUNT(*) AS units,
     ISNULL(SUM(loanamount_fundedfinal), 0) AS volume
-FROM vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1
   AND funding_date >= @start AND funding_date <= @end
 GROUP BY
@@ -54,7 +62,7 @@ SELECT
     END AS purpose,
     COUNT(*) AS units,
     ISNULL(SUM(loanamount_fundedfinal), 0) AS volume
-FROM vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1
   AND funding_date >= @start AND funding_date <= @end
 GROUP BY
@@ -74,7 +82,7 @@ SELECT
     END AS channel,
     COUNT(*) AS units,
     ISNULL(SUM(loanamount_fundedfinal), 0) AS volume
-FROM vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1
   AND funding_date >= @start AND funding_date <= @end
 GROUP BY
@@ -94,7 +102,7 @@ SELECT
     END AS txn_type,
     COUNT(*) AS units,
     ISNULL(SUM(loanamount_fundedfinal), 0) AS volume
-FROM vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1
   AND loanchannel_summary <> 'Brokered'
   AND sellside_investordeliverydate >= @start AND sellside_investordeliverydate <= @end
@@ -128,7 +136,24 @@ GROUP BY
         };
     }
 
-    public async Task<HistoricalResponse> FetchFullAsync(
+    public Task<HistoricalResponse> FetchFullAsync(
+        DateTime prodStart, DateTime prodEnd,
+        DateTime? priorStart, DateTime? priorEnd,
+        DateTime? salesStart, DateTime? salesEnd,
+        DateTime? salesPriorStart, DateTime? salesPriorEnd)
+    {
+        var key = $"historical:{prodStart:yyyyMMdd}:{prodEnd:yyyyMMdd}:" +
+                  $"{priorStart:yyyyMMdd}:{priorEnd:yyyyMMdd}:" +
+                  $"{salesStart:yyyyMMdd}:{salesEnd:yyyyMMdd}:" +
+                  $"{salesPriorStart:yyyyMMdd}:{salesPriorEnd:yyyyMMdd}";
+        return _cache.GetOrCreateAsync(key, e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = CacheTtl;
+            return FetchFullCore(prodStart, prodEnd, priorStart, priorEnd, salesStart, salesEnd, salesPriorStart, salesPriorEnd);
+        })!;
+    }
+
+    private async Task<HistoricalResponse> FetchFullCore(
         DateTime prodStart, DateTime prodEnd,
         DateTime? priorStart, DateTime? priorEnd,
         DateTime? salesStart, DateTime? salesEnd,

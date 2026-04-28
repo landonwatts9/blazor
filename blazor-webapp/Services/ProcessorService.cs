@@ -1,13 +1,21 @@
 using System.Data;
+using Microsoft.Extensions.Caching.Memory;
 using SamReporting.Models;
 
 namespace SamReporting.Services;
 
 public class ProcessorService
 {
-    private readonly SqlService _sql;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public ProcessorService(SqlService sql) => _sql = sql;
+    private readonly SqlService _sql;
+    private readonly IMemoryCache _cache;
+
+    public ProcessorService(SqlService sql, IMemoryCache cache)
+    {
+        _sql = sql;
+        _cache = cache;
+    }
 
     private const string MyPipelineSql = @"
 SELECT
@@ -18,13 +26,17 @@ SELECT
     processor_name,
     loanofficer_name,
     estimatedclosing_date
-FROM vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE currentloanfolder = 'My Pipeline'
   AND uw_currentstatus IN ('To Be Assigned','In Review','Assigned','Submitted for Final Approval')
 ORDER BY estimatedclosing_date, loan_number";
 
     public Task<List<ProcessorPipelineRow>> GetMyPipelineAsync() =>
-        _sql.QueryAsync(MyPipelineSql, Map);
+        _cache.GetOrCreateAsync("processor:mypipeline", e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = CacheTtl;
+            return _sql.QueryAsync(MyPipelineSql, Map);
+        })!;
 
     private static ProcessorPipelineRow Map(IDataRecord r) => new(
         LoanNumber: Convert.ToInt64(r["loan_number"]),

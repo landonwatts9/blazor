@@ -1,26 +1,41 @@
 using System.Data;
+using Microsoft.Extensions.Caching.Memory;
 using SamReporting.Models;
 
 namespace SamReporting.Services;
 
 public class MonthlyDashboardService
 {
-    private readonly SqlService _sql;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public MonthlyDashboardService(SqlService sql) => _sql = sql;
+    private readonly SqlService _sql;
+    private readonly IMemoryCache _cache;
+
+    public MonthlyDashboardService(SqlService sql, IMemoryCache cache)
+    {
+        _sql = sql;
+        _cache = cache;
+    }
+
+    private Task<T> Cached<T>(string key, Func<Task<T>> factory) =>
+        _cache.GetOrCreateAsync(key, e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = CacheTtl;
+            return factory();
+        })!;
 
     // ─── SQL ─────────────────────────────────────────────────────────────────
 
     private const string KpisSql = @"
 SELECT
-    (SELECT ISNULL(COUNT(*),0) FROM dbo.vw_funded_loans
-       WHERE funding_date >= @mStart AND funding_date < @mEnd) AS funded_units,
-    (SELECT ISNULL(SUM(loanamount_fundedfinal),0) FROM dbo.vw_funded_loans
-       WHERE funding_date >= @mStart AND funding_date < @mEnd) AS funded_volume,
-    (SELECT ISNULL(COUNT(*),0) FROM dbo.vw_EncompassLoan_Silver
+    (SELECT ISNULL(COUNT(*),0) FROM dbo.EncompassLoan_Gold
+       WHERE funded_flag = 1 AND funding_date >= @mStart AND funding_date < @mEnd) AS funded_units,
+    (SELECT ISNULL(SUM(loanamount_fundedfinal),0) FROM dbo.EncompassLoan_Gold
+       WHERE funded_flag = 1 AND funding_date >= @mStart AND funding_date < @mEnd) AS funded_volume,
+    (SELECT ISNULL(COUNT(*),0) FROM dbo.EncompassLoan_Gold
        WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
          AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd) AS proj_units,
-    (SELECT ISNULL(SUM(COALESCE(loanamount_fundedfinal, loanamount, 0)),0) FROM dbo.vw_EncompassLoan_Silver
+    (SELECT ISNULL(SUM(COALESCE(loanamount_fundedfinal, loanamount, 0)),0) FROM dbo.EncompassLoan_Gold
        WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
          AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd) AS proj_volume";
 
@@ -30,7 +45,7 @@ SELECT DAY(estimatedclosing_date) AS day_num,
        SUM(CASE WHEN loanchannel_summary = 'HECM'     THEN 1 ELSE 0 END) AS hecm,
        SUM(CASE WHEN loanchannel_summary = 'Brokered' THEN 1 ELSE 0 END) AS brokered,
        SUM(COALESCE(loanamount_fundedfinal, loanamount, 0)) AS volume
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
   AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
 GROUP BY DAY(estimatedclosing_date) ORDER BY day_num";
@@ -51,7 +66,7 @@ SELECT COALESCE(milestone_status, 'Unknown') AS milestone,
        SUM(CASE WHEN loanchannel_summary = 'Brokered' THEN 1 ELSE 0 END) AS brokered,
        SUM(COALESCE(loanamount_fundedfinal, loanamount, 0)) AS volume,
        {MilestoneOrder} AS sort_order
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
   AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
 GROUP BY milestone_status ORDER BY sort_order";
@@ -70,7 +85,7 @@ SELECT COALESCE(milestone_status, 'Unknown') AS milestone,
             WHEN milestone_status IN ('Processing','Send to Closing','Underwriting','TC Review') THEN 'Medium'
             ELSE 'Low' END AS confidence,
        {MilestoneOrder} AS sort_order
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
   AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
 GROUP BY milestone_status ORDER BY sort_order";
@@ -82,7 +97,7 @@ SELECT
     AVG(CAST(turntime_uw_to_sendtoclosing AS FLOAT)) AS avg_uw_to_stc,
     AVG(CAST(turntime_sendtoclosing_to_docstotitle AS FLOAT)) AS avg_stc_to_docs,
     COUNT(*) AS loan_count
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1 AND funding_date >= @mStart AND funding_date < @mEnd";
 
     private const string TurnTimesTrailingSql = @"
@@ -91,7 +106,7 @@ SELECT
     AVG(CAST(turntime_lock_to_fund AS FLOAT)) AS avg_lock_to_fund,
     AVG(CAST(turntime_uw_to_sendtoclosing AS FLOAT)) AS avg_uw_to_stc,
     AVG(CAST(turntime_sendtoclosing_to_docstotitle AS FLOAT)) AS avg_stc_to_docs
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1
   AND funding_date >= @trailStart AND funding_date < @mStart";
 
@@ -105,64 +120,71 @@ SELECT
     AVG(CAST(turntime_sendtoclosing_to_docstotitle AS FLOAT)) AS stc_to_docs,
     AVG(CAST(turntime_docstotitle_to_docsigning AS FLOAT))    AS docs_to_signing,
     AVG(CAST(turntime_docsigning_to_funding AS FLOAT))        AS signing_to_funding
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1 AND funding_date >= @mStart AND funding_date < @mEnd";
 
     private const string TurnTimeTrendSql = @"
 SELECT MONTH(funding_date) AS mo,
        AVG(CAST(turntime_hmdaapp_to_fund AS FLOAT)) AS avg_app_to_fund,
        AVG(CAST(turntime_lock_to_fund AS FLOAT))    AS avg_lock_to_fund
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1 AND funding_date >= @yStart AND funding_date < @yEnd
 GROUP BY MONTH(funding_date) ORDER BY mo";
 
     private const string ChannelSql = @"
 SELECT loanchannel_summary AS label, COUNT(*) AS units, SUM(loanamount_fundedfinal) AS volume
-FROM dbo.vw_funded_loans
-WHERE funding_date >= @mStart AND funding_date < @mEnd
+FROM dbo.EncompassLoan_Gold
+WHERE funded_flag = 1 AND funding_date >= @mStart AND funding_date < @mEnd
 GROUP BY loanchannel_summary ORDER BY volume DESC";
 
+    // loanpurposecategory lives on the DIM_LoanPurpose dimension table; gold has only loan_purpose,
+    // so we join (matches what vw_funded_loans does internally).
     private const string PurposeSql = @"
-SELECT COALESCE(loanpurposecategory, 'Other') AS label, COUNT(*) AS units,
-       SUM(loanamount_fundedfinal) AS volume
-FROM dbo.vw_funded_loans
-WHERE funding_date >= @mStart AND funding_date < @mEnd
-GROUP BY loanpurposecategory ORDER BY volume DESC";
+SELECT COALESCE(lp.loanpurposecategory, 'Other') AS label, COUNT(*) AS units,
+       SUM(g.loanamount_fundedfinal) AS volume
+FROM dbo.EncompassLoan_Gold g
+LEFT JOIN dbo.DIM_LoanPurpose lp ON g.loan_purpose = lp.loanpurpose
+WHERE g.funded_flag = 1 AND g.funding_date >= @mStart AND g.funding_date < @mEnd
+GROUP BY lp.loanpurposecategory ORDER BY volume DESC";
 
     private const string LoSummaryFundedSql = @"
 SELECT loanofficer_name AS lo, COUNT(*) AS units, SUM(loanamount_fundedfinal) AS volume
-FROM dbo.vw_funded_loans
-WHERE funding_date >= @mStart AND funding_date < @mEnd
+FROM dbo.EncompassLoan_Gold
+WHERE funded_flag = 1 AND funding_date >= @mStart AND funding_date < @mEnd
 GROUP BY loanofficer_name";
 
     private const string LoSummaryProjSql = @"
 SELECT loanofficer_name AS lo, COUNT(*) AS units,
        SUM(COALESCE(loanamount_fundedfinal, loanamount, 0)) AS volume
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
   AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
 GROUP BY loanofficer_name";
 
     private const string FundedDetailSql = @"
-SELECT loan_number, borrower_lastname, loanofficer_name, loanchannel_summary,
-       loanpurposecategory AS purpose, loanamount_fundedfinal, interest_rate, funding_date
-FROM dbo.vw_funded_loans
-WHERE funding_date >= @mStart AND funding_date < @mEnd
-ORDER BY funding_date DESC";
+SELECT g.loan_number, g.borrower_lastname, g.loanofficer_name, g.loanchannel_summary,
+       lp.loanpurposecategory AS purpose, g.loanamount_fundedfinal, g.interest_rate, g.funding_date
+FROM dbo.EncompassLoan_Gold g
+LEFT JOIN dbo.DIM_LoanPurpose lp ON g.loan_purpose = lp.loanpurpose
+WHERE g.funded_flag = 1 AND g.funding_date >= @mStart AND g.funding_date < @mEnd
+ORDER BY g.funding_date DESC";
 
     private const string ProjectedDetailSql = @"
 SELECT loan_number, borrower_lastname, loanofficer_name, loanchannel_summary,
        loan_purpose AS purpose, milestone_status,
        COALESCE(loanamount_fundedfinal, loanamount, 0) AS loan_amount,
        estimatedclosing_date
-FROM dbo.vw_EncompassLoan_Silver
+FROM dbo.EncompassLoan_Gold
 WHERE currentloanfolder = 'My Pipeline' AND funded_flag = 0
   AND estimatedclosing_date >= @mStart AND estimatedclosing_date < @mEnd
 ORDER BY estimatedclosing_date";
 
     // ─── Per-tab fetchers ────────────────────────────────────────────────────
 
-    public async Task<MonthlySummary> GetSummaryAsync(int year, int month)
+    public Task<MonthlySummary> GetSummaryAsync(int year, int month) =>
+        Cached($"monthly:summary:{year}:{month}", () => FetchSummaryAsync(year, month));
+
+    private async Task<MonthlySummary> FetchSummaryAsync(int year, int month)
     {
         var p = MonthParams(year, month);
 
@@ -223,7 +245,10 @@ ORDER BY estimatedclosing_date";
             fundedByLo);
     }
 
-    public async Task<PipelineHealth> GetPipelineAsync(int year, int month)
+    public Task<PipelineHealth> GetPipelineAsync(int year, int month) =>
+        Cached($"monthly:pipeline:{year}:{month}", () => FetchPipelineAsync(year, month));
+
+    private async Task<PipelineHealth> FetchPipelineAsync(int year, int month)
     {
         var rows = await _sql.QueryAsync(PipelineAgingSql,
             r => new PipelineAgingRow(
@@ -249,7 +274,10 @@ ORDER BY estimatedclosing_date";
             StaleCount: rows.Sum(x => x.StaleCount));
     }
 
-    public async Task<TurnTimeBundle> GetTurnTimesAsync(int year, int month)
+    public Task<TurnTimeBundle> GetTurnTimesAsync(int year, int month) =>
+        Cached($"monthly:turntimes:{year}:{month}", () => FetchTurnTimesAsync(year, month));
+
+    private async Task<TurnTimeBundle> FetchTurnTimesAsync(int year, int month)
     {
         var p = MonthParams(year, month);
 
@@ -297,7 +325,10 @@ ORDER BY estimatedclosing_date";
         return new TurnTimeBundle(times, waterfall, trendTask.Result);
     }
 
-    public async Task<IReadOnlyList<LoanOfficerRow>> GetLoanOfficersAsync(int year, int month)
+    public Task<IReadOnlyList<LoanOfficerRow>> GetLoanOfficersAsync(int year, int month) =>
+        Cached($"monthly:los:{year}:{month}", () => FetchLoanOfficersAsync(year, month));
+
+    private async Task<IReadOnlyList<LoanOfficerRow>> FetchLoanOfficersAsync(int year, int month)
     {
         var p = MonthParams(year, month);
         var fundedTask = _sql.QueryAsync(LoSummaryFundedSql, p);
@@ -323,7 +354,10 @@ ORDER BY estimatedclosing_date";
             .ToList();
     }
 
-    public async Task<LoanDetailBundle> GetDetailAsync(int year, int month)
+    public Task<LoanDetailBundle> GetDetailAsync(int year, int month) =>
+        Cached($"monthly:detail:{year}:{month}", () => FetchDetailAsync(year, month));
+
+    private async Task<LoanDetailBundle> FetchDetailAsync(int year, int month)
     {
         var p = MonthParams(year, month);
         var fundedTask = _sql.QueryAsync(FundedDetailSql,

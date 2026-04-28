@@ -15,6 +15,7 @@ public class Program
             .AddInteractiveServerComponents();
 
         builder.Services.AddSingleton<SqlService>();
+        builder.Services.AddMemoryCache();
         builder.Services.AddScoped<HistoricalService>();
         builder.Services.AddScoped<ProcessorService>();
         builder.Services.AddScoped<MonthlyDashboardService>();
