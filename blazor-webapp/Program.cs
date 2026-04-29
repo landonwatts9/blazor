@@ -33,7 +33,11 @@ public class Program
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = IISDefaults.AuthenticationScheme;
+                options.DefaultAuthenticateScheme = IISDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = IISDefaults.AuthenticationScheme;
+                options.DefaultForbidScheme = IISDefaults.AuthenticationScheme;
+                options.DefaultSignInScheme = IISDefaults.AuthenticationScheme;
+                options.DefaultSignOutScheme = IISDefaults.AuthenticationScheme;
             });
         }
 
