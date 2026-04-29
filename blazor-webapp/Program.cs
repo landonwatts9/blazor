@@ -62,10 +62,12 @@ public class Program
         app.UseHttpsRedirection();
 
         app.UseStaticFiles();
-        app.UseAntiforgery();
 
+        // Order matters: authentication must run before authorization, and
+        // authorization must run before antiforgery (which inspects the user).
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseAntiforgery();
 
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
