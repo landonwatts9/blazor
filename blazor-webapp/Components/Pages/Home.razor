@@ -46,7 +46,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        username = Access.CurrentUsername();
+        username = await Access.CurrentUsernameAsync();
         allowed = await Access.GetAllowedDashboardsAsync(username);
     }
 }

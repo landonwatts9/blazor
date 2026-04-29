@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace SamReporting.Services;
@@ -17,28 +17,32 @@ public class AccessService
 
     private readonly SqlService _sql;
     private readonly IConfiguration _config;
-    private readonly IHttpContextAccessor _http;
+    private readonly AuthenticationStateProvider _authState;
     private readonly IMemoryCache _cache;
 
     public AccessService(SqlService sql, IConfiguration config,
-        IHttpContextAccessor http, IMemoryCache cache)
+        AuthenticationStateProvider authState, IMemoryCache cache)
     {
         _sql = sql;
         _config = config;
-        _http = http;
+        _authState = authState;
         _cache = cache;
     }
 
     /// <summary>
     /// Returns the username whose access we should check. Honors a DevImpersonate
     /// override from configuration (dev only) so you can test as another user
-    /// without logging out.
+    /// without logging out. Uses Blazor's AuthenticationStateProvider so it
+    /// works both during the initial HTTP request and inside the SignalR
+    /// circuit (where HttpContext is null).
     /// </summary>
-    public string CurrentUsername()
+    public async Task<string> CurrentUsernameAsync()
     {
         var devUser = _config["DevImpersonate"];
         if (!string.IsNullOrWhiteSpace(devUser)) return devUser;
-        return _http.HttpContext?.User.Identity?.Name ?? string.Empty;
+
+        var state = await _authState.GetAuthenticationStateAsync();
+        return state.User.Identity?.Name ?? string.Empty;
     }
 
     /// <summary>Returns the set of dashboard keys this user is allowed to view.</summary>

@@ -132,7 +132,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        authorized = await Access.CanAccessAsync(Access.CurrentUsername(), "historical");
+        var user = await Access.CurrentUsernameAsync();
+        authorized = await Access.CanAccessAsync(user, "historical");
         accessChecked = true;
         if (!authorized) return;
         await LoadData();

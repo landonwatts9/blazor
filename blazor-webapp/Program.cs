@@ -39,7 +39,6 @@ public class Program
         });
 
         builder.Services.AddCascadingAuthenticationState();
-        builder.Services.AddHttpContextAccessor();
 
         builder.Services.AddSingleton<SqlService>();
         builder.Services.AddMemoryCache();
