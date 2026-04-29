@@ -1,6 +1,5 @@
 using ApexCharts;
 using Microsoft.AspNetCore.Authentication.Negotiate;
-using Microsoft.AspNetCore.Server.IISIntegration;
 using SamReporting.Components;
 using SamReporting.Services;
 
@@ -16,20 +15,13 @@ public class Program
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
-        // Windows authentication. Under IIS, the IIS module performs the
-        // Kerberos/NTLM handshake and forwards the resulting identity — we
-        // just register the IIS scheme. Under Kestrel (dotnet watch run on
-        // a domain-joined dev machine), Negotiate handles it directly.
-        if (builder.Environment.IsDevelopment())
-        {
-            builder.Services
-                .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-                .AddNegotiate();
-        }
-        else
-        {
-            builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme);
-        }
+        // Windows authentication. AddNegotiate registers the actual handler
+        // (so authorization has a scheme to challenge with) and works in
+        // both Kestrel (dev) and IIS hosting — under IIS the handler defers
+        // to the identity already established by the IIS module.
+        builder.Services
+            .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+            .AddNegotiate();
 
         // Require authentication on every page by default. Pages can opt out
         // with [AllowAnonymous] if needed (none currently do).
