@@ -3,9 +3,16 @@
 @using SamReporting.Models
 @using SamReporting.Services
 @inject ProcessorService ProcessorSvc
+@inject AccessService Access
 
 <PageTitle>Processor Pipeline</PageTitle>
 
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else
+{
 <div class="section-header">My Pipeline</div>
 <div class="section-body">
     @if (loading)
@@ -47,13 +54,21 @@
         </table>
     }
 </div>
+}
 
 @code {
+    private bool accessChecked;
+    private bool authorized;
+
     private List<ProcessorPipelineRow>? rows;
     private bool loading;
 
     protected override async Task OnInitializedAsync()
     {
+        authorized = await Access.CanAccessAsync(Access.CurrentUsername(), "processor");
+        accessChecked = true;
+        if (!authorized) return;
+
         loading = true;
         try
         {

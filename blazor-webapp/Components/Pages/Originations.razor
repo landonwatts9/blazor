@@ -4,9 +4,16 @@
 @using SamReporting.Services
 @using ApexCharts
 @inject OriginationsService Svc
+@inject AccessService Access
 
 <PageTitle>Originations</PageTitle>
 
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else
+{
 <div class="orig-layout">
     <header class="orig-header">
         <div class="picker">
@@ -226,8 +233,12 @@
         }
     </main>
 </div>
+}
 
 @code {
+    private bool accessChecked;
+    private bool authorized;
+
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     // Default to the Saturday of the current calendar week.
@@ -266,7 +277,13 @@
         Legend = new Legend { Position = LegendPosition.Top },
     };
 
-    protected override Task OnInitializedAsync() => Apply();
+    protected override async Task OnInitializedAsync()
+    {
+        authorized = await Access.CanAccessAsync(Access.CurrentUsername(), "originations");
+        accessChecked = true;
+        if (!authorized) return;
+        await Apply();
+    }
 
     private async Task Apply()
     {

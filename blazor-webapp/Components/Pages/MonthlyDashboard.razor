@@ -4,9 +4,16 @@
 @using SamReporting.Services
 @using ApexCharts
 @inject MonthlyDashboardService Svc
+@inject AccessService Access
 
 <PageTitle>Monthly Dashboard</PageTitle>
 
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else
+{
 <div class="period-bar">
     <div class="period-group">
         <label>YEAR</label>
@@ -377,8 +384,12 @@ else
         }
     }
 }
+}
 
 @code {
+    private bool accessChecked;
+    private bool authorized;
+
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private string tab = "summary";
@@ -560,7 +571,13 @@ else
         builder.CloseElement();
     };
 
-    protected override Task OnInitializedAsync() => Apply();
+    protected override async Task OnInitializedAsync()
+    {
+        authorized = await Access.CanAccessAsync(Access.CurrentUsername(), "monthly");
+        accessChecked = true;
+        if (!authorized) return;
+        await Apply();
+    }
 
     private async Task Apply()
     {

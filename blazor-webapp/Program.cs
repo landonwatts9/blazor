@@ -1,4 +1,5 @@
 using ApexCharts;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using SamReporting.Components;
 using SamReporting.Services;
 
@@ -14,12 +15,29 @@ public class Program
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
+        // Windows authentication via IIS / Negotiate. IIS validates the user's
+        // ticket against AD and hands us a populated ClaimsPrincipal.
+        builder.Services
+            .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+            .AddNegotiate();
+
+        // Require authentication on every page by default. Pages can opt out
+        // with [AllowAnonymous] if needed (none currently do).
+        builder.Services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = options.DefaultPolicy;
+        });
+
+        builder.Services.AddCascadingAuthenticationState();
+        builder.Services.AddHttpContextAccessor();
+
         builder.Services.AddSingleton<SqlService>();
         builder.Services.AddMemoryCache();
         builder.Services.AddScoped<HistoricalService>();
         builder.Services.AddScoped<ProcessorService>();
         builder.Services.AddScoped<MonthlyDashboardService>();
         builder.Services.AddScoped<OriginationsService>();
+        builder.Services.AddScoped<AccessService>();
         builder.Services.AddApexCharts();
 
         var app = builder.Build();
@@ -36,6 +54,9 @@ public class Program
 
         app.UseStaticFiles();
         app.UseAntiforgery();
+
+        app.UseAuthentication();
+        app.UseAuthorization();
 
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();

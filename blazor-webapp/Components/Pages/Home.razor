@@ -1,9 +1,52 @@
 @page "/"
+@inject AccessService Access
 
 <PageTitle>SAM Reporting</PageTitle>
 
-<h2>SAM Reporting (Blazor POC)</h2>
-<p>Proof-of-concept Blazor Server port of the internal dashboards.</p>
-<ul>
-    <li><a href="/historical">Historical Loan Production</a></li>
-</ul>
+<div class="home">
+    <h2>SAM Reporting</h2>
+    <p class="subtitle">Welcome, @DisplayName.</p>
+
+    @if (allowed is null)
+    {
+        <p class="loading">Loading…</p>
+    }
+    else if (allowed.Count == 0)
+    {
+        <NoAccessMessage />
+    }
+    else
+    {
+        <div class="dashboard-grid">
+            @foreach (var d in DashboardCatalog.All.Where(d => allowed.Contains(d.Key)))
+            {
+                <a class="dashboard-card" href="@d.Route">
+                    <h3>@d.Title</h3>
+                    <p>@d.Description</p>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private HashSet<string>? allowed;
+    private string username = "";
+
+    private string DisplayName
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(username)) return "guest";
+            // Strip DOMAIN\ prefix for a friendlier greeting
+            var slash = username.IndexOf('\\');
+            return slash >= 0 ? username[(slash + 1)..] : username;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        username = Access.CurrentUsername();
+        allowed = await Access.GetAllowedDashboardsAsync(username);
+    }
+}

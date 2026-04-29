@@ -3,9 +3,16 @@
 @using SamReporting.Models
 @using SamReporting.Services
 @inject HistoricalService HistoricalSvc
+@inject AccessService Access
 
 <PageTitle>Historical Loan Production</PageTitle>
 
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else
+{
 <div class="range-card">
     <div class="group">
         <label>Current Production Period</label>
@@ -90,8 +97,12 @@
         </div>
     }
 </div>
+}
 
 @code {
+    private bool accessChecked;
+    private bool authorized;
+
     private static readonly string[] ProductRows = new[]
     {
         "FNMA / FHLMC",
@@ -121,6 +132,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        authorized = await Access.CanAccessAsync(Access.CurrentUsername(), "historical");
+        accessChecked = true;
+        if (!authorized) return;
         await LoadData();
     }
 

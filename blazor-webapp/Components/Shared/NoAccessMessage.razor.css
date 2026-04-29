@@ -1,0 +1,19 @@
+.no-access {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 2rem 2.5rem;
+    margin: 2rem auto;
+    max-width: 560px;
+    text-align: center;
+}
+.no-access h2 {
+    color: #0B426A;
+    font-size: 1.25rem;
+    margin: 0 0 0.5rem 0;
+}
+.no-access p {
+    color: #475569;
+    margin: 0;
+}
+.no-access a { color: #0B86AF; }
