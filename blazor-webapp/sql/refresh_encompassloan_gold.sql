@@ -8,6 +8,19 @@
 USE SAM_Reporting;
 GO
 
+-- These SET options are required when the source view (vw_EncompassLoan_Silver) or
+-- the target table participate in indexed views or indexes on computed columns.
+-- SSMS sessions get most of these ON by default; SQL Server Agent job steps don't,
+-- which is why the manual run works but the scheduled job fails without them.
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+GO
+
 BEGIN TRY
     BEGIN TRANSACTION;
 
