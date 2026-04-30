@@ -90,7 +90,8 @@ GROUP BY ISNULL(lp.loanpurposecategory,'Other')";
 
     // Funnel: cohort = loans whose hmda_applicationdate is in the selected month.
     // Replicates vw_originations folder filter inline. Each stage is a count of
-    // the cohort whose corresponding stage date is non-null.
+    // the cohort whose corresponding stage date is non-null. @channel is optional
+    // (NULL = all channels) so a single query handles both All and per-channel views.
     private const string FunnelSql = @"
 WITH cohort AS (
     SELECT loan_number, lock_date, underwritingsubmission_date, underwritingapproval_date, funding_date
@@ -99,6 +100,7 @@ WITH cohort AS (
       AND loan_number IS NOT NULL AND loanofficer_nmlsid IS NOT NULL
       AND LOWER(LTRIM(RTRIM(COALESCE(currentloanfolder, '')))) NOT IN
           ('prospects','test','ob_test','ob test','adverse','adverse prospects')
+      AND (@channel IS NULL OR loanchannel_summary = @channel)
 )
 SELECT
     (SELECT COUNT(*) FROM cohort)                                            AS apps,
@@ -250,12 +252,14 @@ ORDER BY m.m";
             byPurpose.Values.OrderByDescending(b => b.OriginationUnits).ToList());
     }
 
-    public Task<IReadOnlyList<FunnelStage>> GetFunnelAsync(int year, int month) =>
-        Cached($"orig:funnel:{year}:{month}", () => FetchFunnelAsync(year, month));
+    public Task<IReadOnlyList<FunnelStage>> GetFunnelAsync(int year, int month, string? channel = null) =>
+        Cached($"orig:funnel:{year}:{month}:{channel ?? "*"}", () => FetchFunnelAsync(year, month, channel));
 
-    private async Task<IReadOnlyList<FunnelStage>> FetchFunnelAsync(int year, int month)
+    private async Task<IReadOnlyList<FunnelStage>> FetchFunnelAsync(int year, int month, string? channel)
     {
-        var p = MakeParams(year, month, DateTime.Today);
+        var p = MakeParams(year, month, DateTime.Today)
+            .Append(("@channel", string.IsNullOrWhiteSpace(channel) ? null : channel))
+            .ToArray();
         var row = (await _sql.QueryAsync(FunnelSql, p)).Single();
         var apps = ToInt(row["apps"]);
         FunnelStage Stage(string label, object? raw)

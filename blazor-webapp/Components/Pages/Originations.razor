@@ -40,8 +40,8 @@ else
                 <button class="week-arrow" type="button" @onclick="() => ShiftWeek(-1)" title="Previous week">‹</button>
                 <InputDate @bind-Value="weekEnding" @bind-Value:after="SnapWeekEnd" />
                 <button class="week-arrow" type="button" @onclick="() => ShiftWeek(1)" title="Next week">›</button>
+                <span class="week-range">@WeekRangeLabel</span>
             </div>
-            <div class="week-range">@WeekRangeLabel</div>
         </div>
         <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
 
@@ -155,11 +155,22 @@ else
         }
         else if (tab == "funnel")
         {
-            @if (funnel is null) { <p class="empty">Loading funnel...</p> }
-            else
-            {
-                <div class="card">
+            <div class="card">
+                <div class="card-header">
                     <h3>Pull-Through Funnel <span class="muted">apps taken in @MonthLabel</span></h3>
+                    <div class="inline-filter">
+                        <label>Channel</label>
+                        <select @bind="funnelChannel" @bind:after="ReloadFunnel">
+                            <option value="">All channels</option>
+                            <option value="Retail">Retail</option>
+                            <option value="HECM">HECM</option>
+                            <option value="Brokered">Brokered</option>
+                        </select>
+                    </div>
+                </div>
+                @if (funnel is null) { <p class="empty">Loading funnel...</p> }
+                else
+                {
                     <table class="data-table">
                         <thead><tr><th>Stage</th><th class="num">Count</th><th class="num">% of Apps</th></tr></thead>
                         <tbody>
@@ -173,9 +184,9 @@ else
                             }
                         </tbody>
                     </table>
-                    <p class="muted">Stage counts reflect the cohort of apps taken in @MonthLabel; later stages are the same loans that have since reached that milestone.</p>
-                </div>
-            }
+                    <p class="muted">Stage counts reflect the cohort of apps taken in @MonthLabel@(string.IsNullOrEmpty(funnelChannel) ? "" : $" ({funnelChannel} channel)"); later stages are the same loans that have since reached that milestone.</p>
+                }
+            </div>
         }
         else if (tab == "leaderboard")
         {
@@ -252,6 +263,8 @@ else
     private IReadOnlyList<LeaderboardRow>? leaderboard;
     private IReadOnlyList<MonthlyTrendPoint>? trend;
 
+    private string funnelChannel = "";   // "" = all channels
+
     private string loSort = "YtdDollars";
     private bool loDesc = true;
 
@@ -326,10 +339,17 @@ else
         switch (which)
         {
             case "mix"         when mix is null:        mix = await Svc.GetMixAsync(year, month); break;
-            case "funnel"      when funnel is null:     funnel = await Svc.GetFunnelAsync(year, month); break;
+            case "funnel"      when funnel is null:     funnel = await Svc.GetFunnelAsync(year, month, funnelChannel); break;
             case "leaderboard" when leaderboard is null: leaderboard = await Svc.GetLeaderboardAsync(year); break;
             case "trend"       when trend is null:      trend = await Svc.GetTrendAsync(year, month); break;
         }
+    }
+
+    private async Task ReloadFunnel()
+    {
+        funnel = null;
+        StateHasChanged();
+        funnel = await Svc.GetFunnelAsync(year, month, funnelChannel);
     }
 
     // ─── Sort helpers ────────────────────────────────────────────────────────
