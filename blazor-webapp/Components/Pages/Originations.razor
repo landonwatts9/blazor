@@ -40,10 +40,13 @@ else
                 <button class="week-arrow" type="button" @onclick="() => ShiftWeek(-1)" title="Previous week">‹</button>
                 <InputDate @bind-Value="weekEnding" @bind-Value:after="SnapWeekEnd" />
                 <button class="week-arrow" type="button" @onclick="() => ShiftWeek(1)" title="Next week">›</button>
-                <span class="week-range">@WeekRangeLabel</span>
             </div>
+            <div class="week-range">@WeekRangeLabel</div>
         </div>
-        <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
+        <div class="picker apply-col">
+            <label>&nbsp;</label>
+            <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Apply")</button>
+        </div>
 
         @if (landing is not null)
         {

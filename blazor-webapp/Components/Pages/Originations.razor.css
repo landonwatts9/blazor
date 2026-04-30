@@ -9,7 +9,7 @@
     padding: 0.75rem 1.5rem;
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: flex-start;     /* labels align at top of every column */
     gap: 0.75rem;
 }
 
@@ -35,7 +35,7 @@
 .week-arrow:hover { background: #e2e8f0; }
 .week-range {
     font-size: 0.72rem; color: #475569; font-weight: 500;
-    margin-left: 0.5rem; align-self: center; white-space: nowrap;
+    margin-top: 0.15rem; text-align: center; white-space: nowrap;
 }
 
 .btn-apply {
@@ -44,6 +44,10 @@
 }
 .btn-apply:hover:not(:disabled) { background: #0B86AF; }
 .btn-apply:disabled { opacity: 0.6; cursor: wait; }
+
+/* Empty label above Apply keeps the button vertically aligned with the
+   dropdowns/inputs in the row above. */
+.apply-col label { visibility: hidden; }
 
 .kpi-row {
     display: flex;
