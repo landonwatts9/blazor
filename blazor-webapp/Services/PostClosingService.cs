@@ -44,6 +44,7 @@ SELECT
               AND sellside_lockexpirationdate <= DATEADD(DAY, 7, CAST(GETDATE() AS DATE)) THEN 1 ELSE 0 END) AS lock_expiring
 FROM dbo.EncompassLoan_Gold
 WHERE funded_flag = 1
+  AND loanchannel_summary <> 'Brokered'
   AND (@lockType = 'All' OR sellside_investorlocktype = @lockType)
   AND (@channel  = 'All' OR loanchannel_summary       = @channel)";
 
@@ -61,6 +62,7 @@ SELECT g.loan_number, g.borrower_lastname, g.investor_name, g.funding_date,
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_Dates df ON df.date = g.funding_date
 WHERE g.funded_flag = 1
+  AND g.loanchannel_summary <> 'Brokered'
   AND g.funding_date IS NOT NULL
   AND g.shipping_date IS NULL
   AND g.purchased_date IS NULL
@@ -85,6 +87,7 @@ SELECT g.loan_number, g.borrower_lastname, g.investor_name,
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_Dates ds ON ds.date = g.shipping_date
 WHERE g.funded_flag = 1
+  AND g.loanchannel_summary <> 'Brokered'
   AND g.shipping_date IS NOT NULL
   AND g.purchased_date IS NULL
   AND (@lockType = 'All' OR g.sellside_investorlocktype = @lockType)
