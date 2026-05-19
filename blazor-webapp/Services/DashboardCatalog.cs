@@ -39,6 +39,12 @@ public static class DashboardCatalog
         Description: "Funded → shipped → purchased tracking with lock-expiration risk.",
         Route: "/postclosing");
 
+    public static readonly DashboardEntry Financial = new(
+        Key: "financial",
+        Title: "Financial Dashboard",
+        Description: "Income statement, balance sheet, expense detail, and 12-month trending for closed accounting periods.",
+        Route: "/financial");
+
     public static readonly IReadOnlyList<DashboardEntry> All =
-        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing };
+        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing, Financial };
 }

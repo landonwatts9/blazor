@@ -1,0 +1,659 @@
+@page "/financial"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@inject FinancialService Svc
+@inject AccessService Access
+
+<PageTitle>Financial Dashboard</PageTitle>
+
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else if (accessChecked)
+{
+<div class="period-bar">
+    <div class="period-group">
+        <label>PERIOD A</label>
+        @if (closedPeriods is null)
+        {
+            <select disabled><option>Loading…</option></select>
+        }
+        else if (closedPeriods.Count == 0)
+        {
+            <select disabled><option>(none closed)</option></select>
+        }
+        else
+        {
+            <select @bind="periodA">
+                @foreach (var p in closedPeriods)
+                {
+                    <option value="@p.PeriodEnd.ToString("yyyy-MM-dd")">@p.PeriodEnd.ToString("MMMM yyyy")</option>
+                }
+            </select>
+        }
+    </div>
+    <div class="period-group">
+        <label>PERIOD B (compare)</label>
+        @if (closedPeriods is null)
+        {
+            <select disabled><option>Loading…</option></select>
+        }
+        else if (closedPeriods.Count == 0)
+        {
+            <select disabled><option>(none closed)</option></select>
+        }
+        else
+        {
+            <select @bind="periodB">
+                @foreach (var p in closedPeriods)
+                {
+                    <option value="@p.PeriodEnd.ToString("yyyy-MM-dd")">@p.PeriodEnd.ToString("MMMM yyyy")</option>
+                }
+            </select>
+        }
+    </div>
+    <button class="btn-apply" @onclick="Apply" disabled="@(loading || closedPeriods is null || closedPeriods.Count == 0)">
+        @(loading ? "Loading..." : "Apply")
+    </button>
+</div>
+
+@if (closedPeriods is { Count: 0 })
+{
+    <div class="card empty-card">
+        <h3>No closed periods yet</h3>
+        <p>
+            Accounting hasn't marked any months as closed. Once a month's close is finalized,
+            insert a row into <code>dbo.AccountingClosedPeriods</code> and refresh — that month
+            will appear in the dropdowns above.
+        </p>
+    </div>
+}
+else if (loading && incomeStatement is null && balanceSheet is null)
+{
+    <p class="empty">Loading…</p>
+}
+else if (incomeStatement is not null || balanceSheet is not null)
+{
+    <div class="tabs">
+        <button class="tab @(tab == "is" ? "active" : "")" @onclick='() => tab = "is"'>Income Statement</button>
+        <button class="tab @(tab == "bs" ? "active" : "")" @onclick='() => tab = "bs"'>Balance Sheet</button>
+        <button class="tab @(tab == "exp" ? "active" : "")" @onclick='() => tab = "exp"'>Expense Detail</button>
+        <button class="tab @(tab == "trend" ? "active" : "")" @onclick='() => tab = "trend"'>Trending IS</button>
+    </div>
+
+    @if (tab == "is" && incomeStatement is not null)
+    {
+        var s = incomeStatement;
+        <div class="card">
+            <h3>Income Statement <span class="muted">@s.PeriodA.ToString("MMMM yyyy") vs @s.PeriodB.ToString("MMMM yyyy")</span></h3>
+            <table class="fin-table">
+                <thead>
+                    <tr>
+                        <th class="label">&nbsp;</th>
+                        <th class="num">@s.PeriodA.ToString("MMM yyyy")</th>
+                        <th class="num">@s.PeriodB.ToString("MMM yyyy")</th>
+                        <th class="num">$ Δ</th>
+                        <th class="num">% Δ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="stats">
+                        <td class="label">Loan Count</td>
+                        <td class="num">@s.LoanCountA.ToString("N0")</td>
+                        <td class="num">@s.LoanCountB.ToString("N0")</td>
+                        <td class="num @VarClass(s.LoanCountA - s.LoanCountB)">@FmtIntVar(s.LoanCountA - s.LoanCountB)</td>
+                        <td class="num @VarClass(s.LoanCountA - s.LoanCountB)">@FmtPct(SafePct(s.LoanCountA - s.LoanCountB, s.LoanCountB))</td>
+                    </tr>
+                    <tr class="stats">
+                        <td class="label">Loan Volume</td>
+                        <td class="num">@FmtMoney(s.LoanVolumeA)</td>
+                        <td class="num">@FmtMoney(s.LoanVolumeB)</td>
+                        <td class="num @VarClass(s.LoanVolumeA - s.LoanVolumeB)">@FmtMoneyVar(s.LoanVolumeA - s.LoanVolumeB)</td>
+                        <td class="num @VarClass(s.LoanVolumeA - s.LoanVolumeB)">@FmtPct(SafePct(s.LoanVolumeA - s.LoanVolumeB, s.LoanVolumeB))</td>
+                    </tr>
+                    @foreach (var r in s.Lines)
+                    {
+                        @RenderIsRow(r)
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>
+                Basis Points of Loan Volume
+                <span class="muted">each line ÷ loan volume × 10,000</span>
+                <button class="btn-link" @onclick="() => showBps = !showBps">
+                    @(showBps ? "Hide" : "Show")
+                </button>
+            </h3>
+            @if (showBps)
+            {
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th class="label">&nbsp;</th>
+                            <th class="num">@s.PeriodA.ToString("MMM yyyy") (bps)</th>
+                            <th class="num">@s.PeriodB.ToString("MMM yyyy") (bps)</th>
+                            <th class="num">Δ (bps)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in s.BpsLines)
+                        {
+                            <tr class="@RowClass(r)">
+                                <td class="label" style="@IndentStyle(r.Indent)">@r.Label</td>
+                                <td class="num">@FmtBps(r.ValueA)</td>
+                                <td class="num">@FmtBps(r.ValueB)</td>
+                                <td class="num @VarClass(r.Variance)">@FmtBpsVar(r.Variance)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (tab == "exp" && expenseDetail is not null)
+    {
+        var e = expenseDetail;
+        <div class="card">
+            <h3>Expense Detail <span class="muted">@e.PeriodA.ToString("MMMM yyyy") vs @e.PeriodB.ToString("MMMM yyyy")</span></h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="label">Category / Subcategory</th>
+                        <th class="num">@e.PeriodA.ToString("MMM yyyy")</th>
+                        <th class="num">@e.PeriodB.ToString("MMM yyyy")</th>
+                        <th class="num">$ Δ</th>
+                        <th class="num">% Δ</th>
+                        <th class="num">Vendors (A / B)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cat in e.Categories)
+                    {
+                        <tr class="cat-hdr">
+                            <td class="label">@cat.Category</td>
+                            <td class="num">@FmtMoney(cat.ValueA)</td>
+                            <td class="num">@FmtMoney(cat.ValueB)</td>
+                            <td class="num @VarClass(cat.Variance)">@FmtMoneyVar(cat.Variance)</td>
+                            <td class="num @VarClass(cat.Variance)">@FmtPct(cat.VariancePct)</td>
+                            <td></td>
+                        </tr>
+                        @foreach (var sub in cat.Subcategories)
+                        {
+                            var subKey = SubKey(sub);
+                            var isOpen = expandedSubs.Contains(subKey);
+                            <tr class="expandable subtotal" @onclick="() => ToggleSub(subKey)">
+                                <td class="label sub-indent">
+                                    <span class="chevron @(isOpen ? "open" : "")">▶</span>
+                                    @sub.Label
+                                </td>
+                                <td class="num">@FmtMoney(sub.ValueA)</td>
+                                <td class="num">@FmtMoney(sub.ValueB)</td>
+                                <td class="num @VarClass(sub.Variance)">@FmtMoneyVar(sub.Variance)</td>
+                                <td class="num @VarClass(sub.Variance)">@FmtPct(sub.VariancePct)</td>
+                                <td class="num">@sub.VendorCountA / @sub.VendorCountB</td>
+                            </tr>
+                            @if (isOpen)
+                            {
+                                <tr class="expanded-row">
+                                    <td colspan="6">
+                                        @if (sub.Vendors.Count == 0)
+                                        {
+                                            <p class="empty-sub">No vendor activity for either period.</p>
+                                        }
+                                        else
+                                        {
+                                            <table class="data-table nested">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="label">Vendor</th>
+                                                        <th class="num">@e.PeriodA.ToString("MMM yyyy")</th>
+                                                        <th class="num"># txns A</th>
+                                                        <th class="num">@e.PeriodB.ToString("MMM yyyy")</th>
+                                                        <th class="num"># txns B</th>
+                                                        <th class="num">$ Δ</th>
+                                                        <th class="actions">Transactions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var v in sub.Vendors)
+                                                    {
+                                                        var keyA = TxKey(v, e.PeriodA);
+                                                        var keyB = TxKey(v, e.PeriodB);
+                                                        var aOpen = shownTx.Contains(keyA);
+                                                        var bOpen = shownTx.Contains(keyB);
+                                                        <tr>
+                                                            <td class="label">@v.Vendor</td>
+                                                            <td class="num">@FmtMoney(v.ValueA)</td>
+                                                            <td class="num">@(v.TxnCountA == 0 ? "—" : v.TxnCountA.ToString("N0"))</td>
+                                                            <td class="num">@FmtMoney(v.ValueB)</td>
+                                                            <td class="num">@(v.TxnCountB == 0 ? "—" : v.TxnCountB.ToString("N0"))</td>
+                                                            <td class="num @VarClass(v.Variance)">@FmtMoneyVar(v.Variance)</td>
+                                                            <td class="actions">
+                                                                @if (v.TxnCountA > 0)
+                                                                {
+                                                                    <button class="tx-btn @(aOpen ? "open" : "")"
+                                                                            @onclick="() => ToggleTx(v, e.PeriodA)"
+                                                                            disabled="@loadingTx.Contains(keyA)">
+                                                                        @(loadingTx.Contains(keyA) ? "…" : aOpen ? "Hide A" : "Show A")
+                                                                    </button>
+                                                                }
+                                                                @if (v.TxnCountB > 0)
+                                                                {
+                                                                    <button class="tx-btn @(bOpen ? "open" : "")"
+                                                                            @onclick="() => ToggleTx(v, e.PeriodB)"
+                                                                            disabled="@loadingTx.Contains(keyB)">
+                                                                        @(loadingTx.Contains(keyB) ? "…" : bOpen ? "Hide B" : "Show B")
+                                                                    </button>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                        @if (aOpen) { @RenderTxRow(v, e.PeriodA, "A", 7) }
+                                                        @if (bOpen) { @RenderTxRow(v, e.PeriodB, "B", 7) }
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="total">
+                        <td class="label">Total Expenses</td>
+                        <td class="num">@FmtMoney(e.Categories.Sum(c => c.ValueA))</td>
+                        <td class="num">@FmtMoney(e.Categories.Sum(c => c.ValueB))</td>
+                        <td class="num @VarClass(e.Categories.Sum(c => c.Variance))">@FmtMoneyVar(e.Categories.Sum(c => c.Variance))</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+
+    @if (tab == "bs" && balanceSheet is not null)
+    {
+        var b = balanceSheet;
+        <div class="card">
+            <h3>Balance Sheet <span class="muted">As of @b.PeriodA.ToString("MMMM d, yyyy") vs @b.PeriodB.ToString("MMMM d, yyyy")</span></h3>
+            <table class="fin-table">
+                <thead>
+                    <tr>
+                        <th class="label">&nbsp;</th>
+                        <th class="num">@b.PeriodA.ToString("MMM yyyy")</th>
+                        <th class="num">@b.PeriodB.ToString("MMM yyyy")</th>
+                        <th class="num">$ Δ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in b.Lines)
+                    {
+                        @RenderBsRow(r)
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="check-row @(Math.Abs(b.CheckA) > 1m ? "check-fail" : "check-ok")">
+                        <td class="label">Check (A) — Assets − Liabilities − Equity</td>
+                        <td class="num">@FmtMoney(b.CheckA)</td>
+                        <td class="num">&nbsp;</td>
+                        <td class="num">@(Math.Abs(b.CheckA) <= 1m ? "OK" : "Out of balance")</td>
+                    </tr>
+                    <tr class="check-row @(Math.Abs(b.CheckB) > 1m ? "check-fail" : "check-ok")">
+                        <td class="label">Check (B) — Assets − Liabilities − Equity</td>
+                        <td class="num">&nbsp;</td>
+                        <td class="num">@FmtMoney(b.CheckB)</td>
+                        <td class="num">@(Math.Abs(b.CheckB) <= 1m ? "OK" : "Out of balance")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+
+    @if (tab == "trend" && trendingIs is not null)
+    {
+        var t = trendingIs;
+        <div class="card">
+            <h3>
+                Trending Income Statement
+                <span class="muted">
+                    @if (t.Months.Count == 0)
+                    {
+                        <text>No closed months in the 12 months ending @t.Anchor.ToString("MMM yyyy")</text>
+                    }
+                    else
+                    {
+                        <text>@t.Months.Count month@(t.Months.Count == 1 ? "" : "s") ending @t.Anchor.ToString("MMM yyyy")</text>
+                    }
+                </span>
+            </h3>
+            @if (t.Months.Count == 0)
+            {
+                <p class="empty">No closed periods fall inside the 12-month window. Pick a different Period A.</p>
+            }
+            else
+            {
+                <div class="trend-scroll">
+                    <table class="trend-table">
+                        <thead>
+                            <tr>
+                                <th class="label sticky-col">&nbsp;</th>
+                                @foreach (var m in t.Months)
+                                {
+                                    <th class="num">@m.ToString("MMM yy")</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="stats">
+                                <td class="label sticky-col">Loan Count</td>
+                                @for (var i = 0; i < t.Months.Count; i++)
+                                {
+                                    <td class="num">@t.LoanCounts[i].ToString("N0")</td>
+                                }
+                            </tr>
+                            <tr class="stats">
+                                <td class="label sticky-col">Loan Volume</td>
+                                @for (var i = 0; i < t.Months.Count; i++)
+                                {
+                                    <td class="num">@FmtMoney(t.LoanVolumes[i])</td>
+                                }
+                            </tr>
+                            @foreach (var r in t.Lines)
+                            {
+                                @RenderTrendRow(r, t.Months.Count)
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+}
+}
+
+@code {
+    private bool accessChecked;
+    private bool authorized;
+
+    private IReadOnlyList<ClosedPeriod>? closedPeriods;
+    private string? periodA;   // yyyy-MM-dd of the first selected period_end
+    private string? periodB;   // yyyy-MM-dd of the second (compare) period_end
+    private string tab = "is";
+    private bool loading;
+    private bool showBps = true;
+
+    private IncomeStatementResult? incomeStatement;
+    private BalanceSheetResult? balanceSheet;
+    private ExpenseDetailResult? expenseDetail;
+    private TrendingIncomeStatementResult? trendingIs;
+
+    // Expense drilldown state — keys disambiguate same-named subcategories
+    // across categories (e.g. there's no clash today but be safe).
+    private readonly HashSet<string> expandedSubs = new(StringComparer.Ordinal);
+    private readonly HashSet<string> shownTx = new(StringComparer.Ordinal);
+    private readonly HashSet<string> loadingTx = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<ExpenseTransactionRow>> txCache = new(StringComparer.Ordinal);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await Access.CurrentUsernameAsync();
+        authorized = await Access.CanAccessAsync(user, "financial");
+        accessChecked = true;
+        if (!authorized) return;
+
+        closedPeriods = await Svc.GetClosedPeriodsAsync();
+        if (closedPeriods.Count > 0)
+        {
+            // A defaults to the newest closed month. B defaults to the same month
+            // one year prior if it's closed (most common comparison), otherwise the
+            // second-newest closed period.
+            var newest = closedPeriods[0].PeriodEnd;
+            periodA = newest.ToString("yyyy-MM-dd");
+
+            var preferB = newest.AddYears(-1);
+            var match = closedPeriods.FirstOrDefault(p => p.PeriodEnd == preferB);
+            periodB = (match?.PeriodEnd ?? (closedPeriods.Count > 1 ? closedPeriods[1].PeriodEnd : newest))
+                .ToString("yyyy-MM-dd");
+
+            await Apply();
+        }
+    }
+
+    private async Task Apply()
+    {
+        if (periodA is null || periodB is null) return;
+        if (!DateOnly.TryParse(periodA, out var a)) return;
+        if (!DateOnly.TryParse(periodB, out var b)) return;
+
+        loading = true;
+        incomeStatement = null;
+        balanceSheet = null;
+        expenseDetail = null;
+        trendingIs = null;
+        // Selecting a new period pair invalidates anything that was expanded
+        // for the previous comparison.
+        expandedSubs.Clear();
+        shownTx.Clear();
+        loadingTx.Clear();
+        txCache.Clear();
+        try
+        {
+            var isTask    = Svc.GetIncomeStatementAsync(a, b);
+            var bsTask    = Svc.GetBalanceSheetAsync(a, b);
+            var expTask   = Svc.GetExpenseDetailAsync(a, b);
+            var trendTask = Svc.GetTrendingIncomeStatementAsync(a);
+            await Task.WhenAll(isTask, bsTask, expTask, trendTask);
+            incomeStatement = isTask.Result;
+            balanceSheet = bsTask.Result;
+            expenseDetail = expTask.Result;
+            trendingIs = trendTask.Result;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    // ─── Expense drilldown handlers ───────────────────────────────────────────
+
+    private void ToggleSub(string key)
+    {
+        if (!expandedSubs.Add(key)) expandedSubs.Remove(key);
+    }
+
+    private async Task ToggleTx(ExpenseVendorRow v, DateOnly period)
+    {
+        var key = TxKey(v, period);
+        if (shownTx.Contains(key))
+        {
+            shownTx.Remove(key);
+            return;
+        }
+        if (!txCache.ContainsKey(key))
+        {
+            loadingTx.Add(key);
+            try
+            {
+                txCache[key] = await Svc.GetExpenseTransactionsAsync(v.Subcategory, v.Vendor, period);
+            }
+            finally
+            {
+                loadingTx.Remove(key);
+            }
+        }
+        shownTx.Add(key);
+    }
+
+    private static string SubKey(ExpenseSubcategoryRow s) => $"{s.Category}|{s.Label}";
+
+    private static string TxKey(ExpenseVendorRow v, DateOnly period) =>
+        $"{v.Category}|{v.Subcategory}|{v.Vendor}|{period:yyyy-MM-dd}";
+
+    private RenderFragment RenderTxRow(ExpenseVendorRow v, DateOnly period, string periodLabel, int colspan) => __builder =>
+    {
+        var key = TxKey(v, period);
+        var rows = txCache.GetValueOrDefault(key);
+        <tr class="expanded-row">
+            <td colspan="@colspan">
+                <div class="tx-header">@v.Vendor — @period.ToString("MMMM yyyy") (Period @periodLabel)</div>
+                @if (rows is null || rows.Count == 0)
+                {
+                    <p class="empty-sub">No transactions in this period.</p>
+                }
+                else
+                {
+                    <table class="data-table nested tx-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>JE #</th>
+                                <th>Account</th>
+                                <th>Branch</th>
+                                <th>Memo</th>
+                                <th class="num">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in rows)
+                            {
+                                <tr>
+                                    <td>@t.PostDate.ToString("M/d/yy")</td>
+                                    <td>@t.JournalNumber</td>
+                                    <td>@t.GlAccount @(t.AccountDesc is null ? "" : "— " + t.AccountDesc)</td>
+                                    <td>@t.Branch</td>
+                                    <td>@t.Memo</td>
+                                    <td class="num">@t.Amount.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="5" class="label">Total (@rows.Count tx)</td>
+                                <td class="num">@FmtMoney(rows.Sum(x => x.Amount))</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                }
+            </td>
+        </tr>
+    };
+
+    // ─── Row rendering ────────────────────────────────────────────────────────
+
+    private RenderFragment RenderIsRow(FinRow r) => __builder =>
+    {
+        if (r.Style == FinStyle.Blank)
+        {
+            <tr class="blank"><td colspan="5">&nbsp;</td></tr>
+            return;
+        }
+        if (r.Style == FinStyle.Header)
+        {
+            <tr class="hdr"><td colspan="5">@r.Label</td></tr>
+            return;
+        }
+        <tr class="@RowClass(r)">
+            <td class="label" style="@IndentStyle(r.Indent)">@r.Label</td>
+            <td class="num">@FmtMoney(r.ValueA)</td>
+            <td class="num">@FmtMoney(r.ValueB)</td>
+            <td class="num @VarClass(r.Variance)">@FmtMoneyVar(r.Variance)</td>
+            <td class="num @VarClass(r.Variance)">@FmtPct(r.VariancePct)</td>
+        </tr>
+    };
+
+    private RenderFragment RenderTrendRow(TrendingFinRow r, int colCount) => __builder =>
+    {
+        if (r.Style == FinStyle.Blank)
+        {
+            <tr class="blank"><td colspan="@(colCount + 1)">&nbsp;</td></tr>
+            return;
+        }
+        if (r.Style == FinStyle.Header)
+        {
+            <tr class="hdr"><td colspan="@(colCount + 1)" class="sticky-col">@r.Label</td></tr>
+            return;
+        }
+        var cls = r.Style switch
+        {
+            FinStyle.Subtotal => "subtotal",
+            FinStyle.Total    => "total",
+            _                 => "line"
+        };
+        <tr class="@cls">
+            <td class="label sticky-col" style="@IndentStyle(r.Indent)">@r.Label</td>
+            @foreach (var v in r.Values)
+            {
+                <td class="num">@FmtMoney(v)</td>
+            }
+        </tr>
+    };
+
+    private RenderFragment RenderBsRow(FinRow r) => __builder =>
+    {
+        if (r.Style == FinStyle.Blank)
+        {
+            <tr class="blank"><td colspan="4">&nbsp;</td></tr>
+            return;
+        }
+        if (r.Style == FinStyle.Header)
+        {
+            <tr class="hdr"><td colspan="4">@r.Label</td></tr>
+            return;
+        }
+        <tr class="@RowClass(r)">
+            <td class="label" style="@IndentStyle(r.Indent)">@r.Label</td>
+            <td class="num">@FmtMoney(r.ValueA)</td>
+            <td class="num">@FmtMoney(r.ValueB)</td>
+            <td class="num @VarClass(r.Variance)">@FmtMoneyVar(r.Variance)</td>
+        </tr>
+    };
+
+    private static string RowClass(FinRow r) => r.Style switch
+    {
+        FinStyle.Subtotal => "subtotal",
+        FinStyle.Total    => "total",
+        _                 => "line"
+    };
+
+    private static string IndentStyle(int indent) =>
+        indent <= 0 ? "" : $"padding-left:{1 + indent * 1.25}rem;";
+
+    // Green = A is higher than B, red = A is lower. Same convention regardless
+    // of whether the line is income or expense — let the reader interpret.
+    private static string VarClass(decimal v) =>
+        v > 0 ? "var-pos" : v < 0 ? "var-neg" : "";
+
+    // ─── Formatters ───────────────────────────────────────────────────────────
+
+    private static string FmtMoney(decimal v) =>
+        v == 0m ? "—" : v.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+
+    private static string FmtMoneyVar(decimal v) =>
+        v == 0m ? "—" :
+        v > 0   ? "+" + v.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-US"))
+                : "(" + Math.Abs(v).ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-US")) + ")";
+
+    private static string FmtIntVar(int v) =>
+        v == 0 ? "—" : v > 0 ? "+" + v.ToString("N0") : "(" + Math.Abs(v).ToString("N0") + ")";
+
+    private static string FmtPct(decimal? p) =>
+        p is null ? "—" : (p.Value * 100m).ToString("0.0") + "%";
+
+    private static string FmtBps(decimal v) => v == 0m ? "—" : v.ToString("N1");
+
+    private static string FmtBpsVar(decimal v) =>
+        v == 0m ? "—" : (v > 0 ? "+" + v.ToString("N1") : "(" + Math.Abs(v).ToString("N1") + ")");
+
+    private static decimal? SafePct(decimal num, decimal denom) =>
+        denom == 0m ? null : num / Math.Abs(denom);
+
+    private static decimal? SafePct(int num, int denom) =>
+        denom == 0 ? null : (decimal)num / Math.Abs(denom);
+}

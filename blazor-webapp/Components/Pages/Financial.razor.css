@@ -1,0 +1,310 @@
+.period-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.period-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.period-group label { font-size: 0.7rem; letter-spacing: 0.08em; color: #64748b; }
+.period-group select {
+    padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; min-width: 200px;
+}
+
+.btn-apply {
+    background: #0b3a67; color: #fff; border: none; padding: 0.5rem 1.2rem;
+    border-radius: 6px; font-weight: 600; cursor: pointer;
+}
+.btn-apply:hover:not(:disabled) { background: #0a4e8a; }
+.btn-apply:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.empty { padding: 2rem; color: #64748b; }
+.empty-card { padding: 1.5rem 1.75rem; }
+.empty-card h3 { margin-top: 0; }
+.empty-card code {
+    background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.tabs {
+    display: flex; gap: 0;
+    padding: 1rem 1.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+.tab {
+    background: transparent; border: none;
+    padding: 0.6rem 1.2rem; font-weight: 500; color: #64748b; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: #0b3a67; }
+.tab.active { color: #0b3a67; border-bottom-color: #0b3a67; font-weight: 600; }
+
+.card {
+    background: #fff; margin: 1rem 1.5rem; padding: 1rem 1.25rem;
+    border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.card h3 {
+    font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: #0f172a;
+    display: flex; align-items: center; gap: 0.75rem;
+}
+.card h3 .muted { font-size: 0.8rem; color: #64748b; font-weight: 400; }
+
+.btn-link {
+    margin-left: auto;
+    background: transparent; border: 1px solid #cbd5e1;
+    padding: 0.2rem 0.7rem; border-radius: 999px;
+    font-size: 0.75rem; color: #334155; cursor: pointer;
+}
+.btn-link:hover { background: #f1f5f9; }
+
+/* Financial-statement table — hierarchical labels on left, right-aligned numbers */
+.fin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.fin-table th, .fin-table td {
+    padding: 0.32rem 0.65rem;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+.fin-table th {
+    background: #f9fafb; font-weight: 600; color: #334155;
+    font-size: 0.75rem; letter-spacing: 0.04em;
+    text-transform: uppercase; border-bottom: 2px solid #cbd5e1;
+}
+.fin-table td.num, .fin-table th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    width: 12%;
+}
+.fin-table td.label { width: 52%; }
+
+/* Section headers (REVENUE, ASSETS, etc.) — full-width band */
+.fin-table tr.hdr td {
+    font-weight: 700; color: #0b3a67;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 0.78rem;
+    background: #f1f5f9;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #cbd5e1;
+    padding-top: 0.45rem; padding-bottom: 0.45rem;
+}
+
+.fin-table tr.blank td {
+    border: none; height: 0.4rem; padding: 0;
+}
+
+.fin-table tr.line td { color: #334155; }
+
+.fin-table tr.subtotal td {
+    font-weight: 600; color: #0f172a;
+    border-top: 1px solid #cbd5e1;
+    background: #fafbfc;
+}
+
+.fin-table tr.total td {
+    font-weight: 700; color: #0f172a;
+    border-top: 2px solid #0b3a67;
+    border-bottom: 2px solid #0b3a67;
+    background: #eef2f7;
+    font-size: 0.9rem;
+}
+
+.fin-table tr.stats td {
+    font-weight: 600; color: #475569;
+    background: #f8fafc;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.fin-table tr:hover:not(.blank):not(.hdr) td { background: #f8fafc; }
+.fin-table tr.total:hover td { background: #e7ecf3; }
+
+.var-pos { color: #15803d; }
+.var-neg { color: #b91c1c; }
+
+/* Balance-sheet check row — small visual cue that A = L + E */
+.check-row td {
+    font-weight: 600; font-size: 0.8rem;
+    border-top: 2px solid #cbd5e1; padding-top: 0.6rem;
+}
+.check-row.check-ok td  { color: #15803d; background: #f0fdf4; }
+.check-row.check-fail td { color: #b91c1c; background: #fef2f2; }
+
+/* ── G&A drilldown ────────────────────────────────────────────────── */
+
+/* Generic data-table styles for the G&A view, plus chevron + expandable
+   rows pattern borrowed from MonthlyDashboard's Pipeline Aging. */
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.data-table th, .data-table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+.data-table th {
+    background: #f9fafb; font-weight: 600; color: #334155;
+    font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase;
+    border-bottom: 2px solid #cbd5e1;
+}
+.data-table td.num, .data-table th.num {
+    text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.data-table td.label { font-weight: 500; }
+.data-table th.actions, .data-table td.actions { text-align: right; white-space: nowrap; }
+
+.data-table tr.subtotal td {
+    font-weight: 600; color: #0f172a; background: #fafbfc;
+    border-top: 1px solid #cbd5e1;
+}
+.data-table tfoot tr.subtotal td {
+    border-top: 2px solid #0b3a67; background: #eef2f7;
+}
+.data-table tfoot tr.total td {
+    font-weight: 700; color: #0f172a;
+    border-top: 2px solid #0b3a67; background: #eef2f7;
+    font-size: 0.92rem;
+}
+
+/* Category header (Direct Loan Costs / Personnel Costs / G&A) — visually
+   separates expense groups inside the Expense Detail table. */
+.data-table tr.cat-hdr td {
+    background: #0b3a67;
+    color: #fff;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.78rem;
+    border-top: 2px solid #0b3a67;
+    border-bottom: 1px solid #0b3a67;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+.data-table tr.cat-hdr:hover td { background: #0b3a67; }
+
+/* Subcategories under a category header get a subtle indent so the hierarchy
+   reads at a glance. */
+.data-table td.sub-indent { padding-left: 1.5rem; }
+
+/* ── Trending IS ──────────────────────────────────────────────────── */
+
+/* Horizontal scroll container — the trend table can be 12+ columns wide. */
+.trend-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+/* Self-contained styling — intentionally NOT layered on .fin-table so the
+   percentage column widths there don't fight position:sticky. */
+.trend-table {
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    width: auto;          /* never shrink to container width */
+    min-width: max-content;
+}
+.trend-table th, .trend-table td {
+    padding: 0.32rem 0.7rem;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+}
+.trend-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 2px solid #cbd5e1;
+}
+.trend-table th.num, .trend-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    min-width: 95px;
+}
+.trend-table th.label, .trend-table td.label {
+    text-align: left;
+    min-width: 240px;
+    width: 240px;
+}
+
+/* Row styles */
+.trend-table tr.line td     { color: #334155; background: #fff; }
+.trend-table tr.subtotal td { font-weight: 600; color: #0f172a; background: #fafbfc; border-top: 1px solid #cbd5e1; }
+.trend-table tr.total td    { font-weight: 700; color: #0f172a; background: #eef2f7;
+                              border-top: 2px solid #0b3a67; border-bottom: 2px solid #0b3a67; font-size: 0.88rem; }
+.trend-table tr.stats td    { font-weight: 600; color: #475569; background: #f8fafc; border-bottom: 1px solid #cbd5e1; }
+.trend-table tr.hdr td      { font-weight: 700; color: #0b3a67; background: #f1f5f9;
+                              text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.74rem;
+                              border-top: 1px solid #e5e7eb; border-bottom: 1px solid #cbd5e1; }
+.trend-table tr.blank td    { border: none; height: 0.4rem; padding: 0; }
+
+/* Sticky first column. position:sticky needs an opaque background per row
+   style, so spell each one out explicitly. */
+.trend-table .sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-shadow: 1px 0 0 #cbd5e1;
+}
+.trend-table thead th.sticky-col       { background: #f9fafb; z-index: 3; }
+.trend-table tr.stats td.sticky-col    { background: #f8fafc; }
+.trend-table tr.line td.sticky-col     { background: #fff; }
+.trend-table tr.subtotal td.sticky-col { background: #fafbfc; }
+.trend-table tr.total td.sticky-col    { background: #eef2f7; }
+.trend-table tr.hdr td.sticky-col      { background: #f1f5f9; }
+
+/* Expandable row: subcategory rows are clickable, with a rotating chevron. */
+.data-table tr.expandable { cursor: pointer; }
+.data-table tr.expandable:hover td { background: #eef2f7; }
+
+.chevron {
+    display: inline-block;
+    margin-right: 0.5rem;
+    color: #64748b;
+    font-size: 0.7rem;
+    transition: transform 120ms ease;
+}
+.chevron.open { transform: rotate(90deg); color: #0b3a67; }
+
+/* The row that holds the nested vendor / transaction table. */
+.data-table tr.expanded-row > td {
+    background: #f9fafb;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* Nested tables sit inside an expanded-row's single cell. */
+.data-table.nested {
+    width: 100%; background: #fff;
+    border: 1px solid #e5e7eb; border-radius: 6px;
+    font-size: 0.8rem;
+}
+.data-table.nested th {
+    background: #eef2f7;
+    font-size: 0.7rem;
+    border-bottom: 1px solid #cbd5e1;
+}
+.data-table.nested tbody tr:hover td { background: #f8fafc; }
+.data-table.nested tfoot td {
+    font-weight: 600; background: #f1f5f9;
+    border-top: 2px solid #cbd5e1;
+}
+
+/* "Show A / Show B" buttons per vendor row. */
+.tx-btn {
+    background: #fff; border: 1px solid #cbd5e1;
+    padding: 0.2rem 0.55rem; border-radius: 999px;
+    font-size: 0.72rem; color: #334155; cursor: pointer;
+    margin-left: 0.3rem;
+}
+.tx-btn:hover:not(:disabled) { background: #eef2f7; border-color: #94a3b8; }
+.tx-btn.open { background: #0b3a67; color: #fff; border-color: #0b3a67; }
+.tx-btn:disabled { opacity: 0.6; cursor: wait; }
+
+.tx-table { margin-top: 0.5rem; }
+.tx-header {
+    font-weight: 600; font-size: 0.78rem; color: #475569;
+    margin-bottom: 0.3rem;
+}
+.empty-sub { color: #64748b; font-size: 0.85rem; margin: 0.5rem 0; }
