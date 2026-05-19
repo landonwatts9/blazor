@@ -57,19 +57,28 @@
 ::deep .kpi-value { font-size: 1.5rem; font-weight: 700; color: #0f172a; }
 ::deep .kpi-sub { font-size: 0.72rem; color: #64748b; margin-top: 0.2rem; }
 
-/* Two-column body: funded-not-shipped (smaller) + shipped-not-purchased (wider) */
-.pc-grid {
-    display: grid;
-    grid-template-columns: minmax(360px, 1fr) 2fr;
-    gap: 1rem;
-    padding: 0 1.5rem;
+/* Primary tabs (Funded Not Shipped / Shipped Not Purchased) */
+.tabs {
+    display: flex; gap: 0; padding: 1rem 1.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
 }
-@media (max-width: 1100px) {
-    .pc-grid { grid-template-columns: 1fr; }
+.tab {
+    background: transparent; border: none;
+    padding: 0.6rem 1.1rem; font-weight: 500; color: #64748b; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 0.5rem;
 }
+.tab:hover { color: #0b3a67; }
+.tab.active { color: #0b3a67; border-bottom-color: #0b3a67; font-weight: 600; }
+.tab-count {
+    background: #e5e7eb; color: #334155;
+    border-radius: 999px; padding: 0.05rem 0.55rem;
+    font-size: 0.72rem; font-weight: 600;
+}
+.tab.active .tab-count { background: #0b3a67; color: #fff; }
 
 .card {
-    background: #fff; margin: 1rem 0; padding: 1rem 1.25rem;
+    background: #fff; margin: 1rem 1.5rem; padding: 1rem 1.25rem;
     border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .card h3 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: #0f172a; }

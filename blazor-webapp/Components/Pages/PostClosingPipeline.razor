@@ -63,24 +63,32 @@ else
                  SubLabel="Shipped, lock expiring soon"     Accent="amber" />
     </div>
 
-    <div class="pc-grid">
-        <!-- Left: Funded Not Shipped -->
+    <div class="tabs">
+        <button class="tab @(mainTab == "shipped" ? "active" : "")" @onclick='() => mainTab = "shipped"'>
+            Shipped Not Purchased <span class="tab-count">@data.ShippedNotPurchased.Count</span>
+        </button>
+        <button class="tab @(mainTab == "funded" ? "active" : "")" @onclick='() => mainTab = "funded"'>
+            Funded Not Shipped <span class="tab-count">@data.FundedNotShipped.Count</span>
+        </button>
+    </div>
+
+    @if (mainTab == "funded")
+    {
         <div class="card">
-            <h3>Funded Not Shipped <span class="muted">@data.FundedNotShipped.Count loan(s)</span></h3>
             @if (data.FundedNotShipped.Count == 0)
             {
                 <p class="empty">No funded loans waiting to ship.</p>
             }
             else
             {
-                <table class="data-table compact">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            @SortHeader("LoanNumber",       "Loan #",   fnsSort, fnsDesc, SortFns)
-                            @SortHeader("BorrowerLastname", "Name",     fnsSort, fnsDesc, SortFns)
-                            @SortHeader("InvestorName",     "Investor", fnsSort, fnsDesc, SortFns)
+                            @SortHeader("LoanNumber",       "Loan #",    fnsSort, fnsDesc, SortFns)
+                            @SortHeader("BorrowerLastname", "Name",      fnsSort, fnsDesc, SortFns)
+                            @SortHeader("InvestorName",     "Investor",  fnsSort, fnsDesc, SortFns)
                             @SortHeader("FundingDate",      "Fund Date", fnsSort, fnsDesc, SortFns)
-                            @SortHeader("DaysSinceFunding", "Days",     fnsSort, fnsDesc, SortFns, numeric: true)
+                            @SortHeader("DaysSinceFunding", "Days Since Funding", fnsSort, fnsDesc, SortFns, numeric: true)
                         </tr>
                     </thead>
                     <tbody>
@@ -98,10 +106,10 @@ else
                 </table>
             }
         </div>
-
-        <!-- Right: Shipped Not Purchased -->
+    }
+    else
+    {
         <div class="card">
-            <h3>Shipped Not Purchased <span class="muted">@data.ShippedNotPurchased.Count loan(s)</span></h3>
             <div class="pc-tabs">
                 <button class="pc-tab @(snpTab == "loan" ? "active" : "")"     @onclick='() => snpTab = "loan"'>By Loan</button>
                 <button class="pc-tab @(snpTab == "investor" ? "active" : "")" @onclick='() => snpTab = "investor"'>By Investor</button>
@@ -113,18 +121,20 @@ else
             }
             else if (snpTab == "loan")
             {
-                <table class="data-table compact">
+                <table class="data-table">
                     <thead>
                         <tr>
                             @SortHeader("LoanNumber",            "Loan #",        snpSort, snpDesc, SortSnp)
                             @SortHeader("BorrowerLastname",      "Name",          snpSort, snpDesc, SortSnp)
                             @SortHeader("InvestorName",          "Investor",      snpSort, snpDesc, SortSnp)
                             @SortHeader("LockType",              "Type",          snpSort, snpDesc, SortSnp)
+                            @SortHeader("Channel",               "Channel",       snpSort, snpDesc, SortSnp)
                             @SortHeader("InvestorLockDate",      "Inv Lock Date", snpSort, snpDesc, SortSnp)
                             @SortHeader("ShippingDate",          "Ship Date",     snpSort, snpDesc, SortSnp)
-                            @SortHeader("LockExpirationDate",    "Lock Exp",      snpSort, snpDesc, SortSnp)
+                            @SortHeader("LockExpirationDate",    "Lock Exp Date", snpSort, snpDesc, SortSnp)
+                            @SortHeader("FundedAmount",          "Amount",        snpSort, snpDesc, SortSnp, numeric: true)
                             @SortHeader("DaysSinceShipped",      "Days Shipped",  snpSort, snpDesc, SortSnp, numeric: true)
-                            @SortHeader("DaysUntilLockExpires",  "Until Exp",     snpSort, snpDesc, SortSnp, numeric: true)
+                            @SortHeader("DaysUntilLockExpires",  "Until Lock Exp", snpSort, snpDesc, SortSnp, numeric: true)
                         </tr>
                     </thead>
                     <tbody>
@@ -135,9 +145,11 @@ else
                                 <td>@l.BorrowerLastname</td>
                                 <td>@l.InvestorName</td>
                                 <td>@l.LockType</td>
+                                <td>@l.Channel</td>
                                 <td>@l.InvestorLockDate?.ToString("M/d/yy")</td>
                                 <td>@l.ShippingDate?.ToString("M/d/yy")</td>
                                 <td>@l.LockExpirationDate?.ToString("M/d/yy")</td>
+                                <td class="num">@FmtMoney(l.FundedAmount ?? 0)</td>
                                 <td class="num"><span class="aging-pill @AgingClass(l.DaysSinceShipped)">@l.DaysSinceShipped</span></td>
                                 <td class="num @LockUrgencyClass(l.DaysUntilLockExpires)">@FmtLockUrgency(l.DaysUntilLockExpires)</td>
                             </tr>
@@ -147,7 +159,7 @@ else
             }
             else
             {
-                <table class="data-table compact">
+                <table class="data-table">
                     <thead>
                         <tr>
                             @SortHeader("InvestorName",            "Investor",       invSort, invDesc, SortInv)
@@ -176,7 +188,7 @@ else
                 </table>
             }
         </div>
-    </div>
+    }
 }
 }
 
@@ -187,6 +199,7 @@ else
     private int windowDays = 30;
     private string lockType = "All";
     private string channel = "All";
+    private string mainTab = "shipped";
     private string snpTab = "loan";
     private bool loading;
 
@@ -268,9 +281,11 @@ else
         ["BorrowerLastname"]     = x => x.BorrowerLastname,
         ["InvestorName"]         = x => x.InvestorName,
         ["LockType"]             = x => x.LockType,
+        ["Channel"]              = x => x.Channel,
         ["InvestorLockDate"]     = x => x.InvestorLockDate,
         ["ShippingDate"]         = x => x.ShippingDate,
         ["LockExpirationDate"]   = x => x.LockExpirationDate,
+        ["FundedAmount"]         = x => x.FundedAmount,
         ["DaysSinceShipped"]     = x => x.DaysSinceShipped,
         ["DaysUntilLockExpires"] = x => x.DaysUntilLockExpires,
     };
