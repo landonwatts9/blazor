@@ -47,36 +47,49 @@ WHERE funded_flag = 1
   AND (@lockType = 'All' OR sellside_investorlocktype = @lockType)
   AND (@channel  = 'All' OR loanchannel_summary       = @channel)";
 
+    // Business-day counts come from dbo.DIM_Dates.relativebusinessday — a running
+    // counter that increments only on business days (excludes weekends AND holidays).
+    // Subtract two values to get business-days-between. @today_brd is the value for
+    // CAST(GETDATE() AS DATE), captured once per query.
+
     private const string FundedNotShippedSql = @"
-SELECT loan_number, borrower_lastname, investor_name, funding_date,
-       DATEDIFF(DAY, funding_date, CAST(GETDATE() AS DATE)) AS days_since_funding
-FROM dbo.EncompassLoan_Gold
-WHERE funded_flag = 1
-  AND funding_date IS NOT NULL
-  AND shipping_date IS NULL
-  AND purchased_date IS NULL
-  AND (@lockType = 'All' OR sellside_investorlocktype = @lockType)
-  AND (@channel  = 'All' OR loanchannel_summary       = @channel)
-ORDER BY funding_date DESC";
+DECLARE @today_brd int = (SELECT relativebusinessday FROM dbo.DIM_Dates WHERE date = CAST(GETDATE() AS DATE));
+
+SELECT g.loan_number, g.borrower_lastname, g.investor_name, g.funding_date,
+       DATEDIFF(DAY, g.funding_date, CAST(GETDATE() AS DATE)) AS days_since_funding,
+       @today_brd - df.relativebusinessday AS bus_days_since_funding
+FROM dbo.EncompassLoan_Gold g
+LEFT JOIN dbo.DIM_Dates df ON df.date = g.funding_date
+WHERE g.funded_flag = 1
+  AND g.funding_date IS NOT NULL
+  AND g.shipping_date IS NULL
+  AND g.purchased_date IS NULL
+  AND (@lockType = 'All' OR g.sellside_investorlocktype = @lockType)
+  AND (@channel  = 'All' OR g.loanchannel_summary       = @channel)
+ORDER BY g.funding_date DESC";
 
     private const string ShippedNotPurchasedSql = @"
-SELECT loan_number, borrower_lastname, investor_name,
-       sellside_investorlocktype AS lock_type,
-       loanchannel_summary AS channel,
-       sellside_lockdate AS investor_lock_date,
-       shipping_date,
-       sellside_lockexpirationdate AS lock_expiration_date,
-       DATEDIFF(DAY, shipping_date, CAST(GETDATE() AS DATE)) AS days_since_shipped,
-       CASE WHEN sellside_lockexpirationdate IS NULL THEN NULL
-            ELSE DATEDIFF(DAY, CAST(GETDATE() AS DATE), sellside_lockexpirationdate) END AS days_until_lock_expires,
-       loanamount_fundedfinal AS funded_amount
-FROM dbo.EncompassLoan_Gold
-WHERE funded_flag = 1
-  AND shipping_date IS NOT NULL
-  AND purchased_date IS NULL
-  AND (@lockType = 'All' OR sellside_investorlocktype = @lockType)
-  AND (@channel  = 'All' OR loanchannel_summary       = @channel)
-ORDER BY shipping_date";
+DECLARE @today_brd int = (SELECT relativebusinessday FROM dbo.DIM_Dates WHERE date = CAST(GETDATE() AS DATE));
+
+SELECT g.loan_number, g.borrower_lastname, g.investor_name,
+       g.sellside_investorlocktype AS lock_type,
+       g.loanchannel_summary AS channel,
+       g.sellside_lockdate AS investor_lock_date,
+       g.shipping_date,
+       g.sellside_lockexpirationdate AS lock_expiration_date,
+       DATEDIFF(DAY, g.shipping_date, CAST(GETDATE() AS DATE)) AS days_since_shipped,
+       @today_brd - ds.relativebusinessday AS bus_days_since_shipped,
+       CASE WHEN g.sellside_lockexpirationdate IS NULL THEN NULL
+            ELSE DATEDIFF(DAY, CAST(GETDATE() AS DATE), g.sellside_lockexpirationdate) END AS days_until_lock_expires,
+       g.loanamount_fundedfinal AS funded_amount
+FROM dbo.EncompassLoan_Gold g
+LEFT JOIN dbo.DIM_Dates ds ON ds.date = g.shipping_date
+WHERE g.funded_flag = 1
+  AND g.shipping_date IS NOT NULL
+  AND g.purchased_date IS NULL
+  AND (@lockType = 'All' OR g.sellside_investorlocktype = @lockType)
+  AND (@channel  = 'All' OR g.loanchannel_summary       = @channel)
+ORDER BY g.shipping_date";
 
     public Task<PostClosingResponse> GetAsync(int windowDays, string lockType, string channel) =>
         Cached(
@@ -102,7 +115,8 @@ ORDER BY shipping_date";
                 BorrowerLastname: r["borrower_lastname"] as string,
                 InvestorName: r["investor_name"] as string,
                 FundingDate: r["funding_date"] as DateTime?,
-                DaysSinceFunding: r["days_since_funding"] is DBNull ? 0 : Convert.ToInt32(r["days_since_funding"])),
+                DaysSinceFunding: r["days_since_funding"] is DBNull ? 0 : Convert.ToInt32(r["days_since_funding"]),
+                BusinessDaysSinceFunding: r["bus_days_since_funding"] is DBNull ? null : Convert.ToInt32(r["bus_days_since_funding"])),
             p);
         var shippedTask = _sql.QueryAsync(ShippedNotPurchasedSql,
             r => new ShippedNotPurchasedRow(
@@ -115,6 +129,7 @@ ORDER BY shipping_date";
                 ShippingDate: r["shipping_date"] as DateTime?,
                 LockExpirationDate: r["lock_expiration_date"] as DateTime?,
                 DaysSinceShipped: r["days_since_shipped"] is DBNull ? 0 : Convert.ToInt32(r["days_since_shipped"]),
+                BusinessDaysSinceShipped: r["bus_days_since_shipped"] is DBNull ? null : Convert.ToInt32(r["bus_days_since_shipped"]),
                 DaysUntilLockExpires: r["days_until_lock_expires"] is DBNull ? null : Convert.ToInt32(r["days_until_lock_expires"]),
                 FundedAmount: r["funded_amount"] as decimal?),
             p);

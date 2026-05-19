@@ -13,7 +13,8 @@ public record FundedNotShippedRow(
     string? BorrowerLastname,
     string? InvestorName,
     DateTime? FundingDate,
-    int DaysSinceFunding);
+    int DaysSinceFunding,
+    int? BusinessDaysSinceFunding);
 
 public record ShippedNotPurchasedRow(
     long LoanNumber,
@@ -25,6 +26,7 @@ public record ShippedNotPurchasedRow(
     DateTime? ShippingDate,
     DateTime? LockExpirationDate,
     int DaysSinceShipped,
+    int? BusinessDaysSinceShipped,
     int? DaysUntilLockExpires,
     decimal? FundedAmount);
 
