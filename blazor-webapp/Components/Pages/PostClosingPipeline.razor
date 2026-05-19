@@ -88,7 +88,8 @@ else
                             @SortHeader("BorrowerLastname", "Name",      fnsSort, fnsDesc, SortFns)
                             @SortHeader("InvestorName",     "Investor",  fnsSort, fnsDesc, SortFns)
                             @SortHeader("FundingDate",      "Fund Date", fnsSort, fnsDesc, SortFns)
-                            @SortHeader("DaysSinceFunding", "Days Since Funding", fnsSort, fnsDesc, SortFns, numeric: true)
+                            @SortHeader("DaysSinceFunding", "Cal Days", fnsSort, fnsDesc, SortFns, numeric: true)
+                            <th class="num">Bus Days</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -100,6 +101,7 @@ else
                                 <td>@l.InvestorName</td>
                                 <td>@l.FundingDate?.ToString("M/d/yy")</td>
                                 <td class="num"><span class="aging-pill @AgingClass(l.DaysSinceFunding)">@l.DaysSinceFunding</span></td>
+                                <td class="num">@BusinessDaysSince(l.FundingDate)</td>
                             </tr>
                         }
                     </tbody>
@@ -133,7 +135,8 @@ else
                             @SortHeader("ShippingDate",          "Ship Date",     snpSort, snpDesc, SortSnp)
                             @SortHeader("LockExpirationDate",    "Lock Exp Date", snpSort, snpDesc, SortSnp)
                             @SortHeader("FundedAmount",          "Amount",        snpSort, snpDesc, SortSnp, numeric: true)
-                            @SortHeader("DaysSinceShipped",      "Days Shipped",  snpSort, snpDesc, SortSnp, numeric: true)
+                            @SortHeader("DaysSinceShipped",      "Cal Days",      snpSort, snpDesc, SortSnp, numeric: true)
+                            <th class="num">Bus Days</th>
                             @SortHeader("DaysUntilLockExpires",  "Until Lock Exp", snpSort, snpDesc, SortSnp, numeric: true)
                         </tr>
                     </thead>
@@ -151,6 +154,7 @@ else
                                 <td>@l.LockExpirationDate?.ToString("M/d/yy")</td>
                                 <td class="num">@FmtMoney(l.FundedAmount ?? 0)</td>
                                 <td class="num"><span class="aging-pill @AgingClass(l.DaysSinceShipped)">@l.DaysSinceShipped</span></td>
+                                <td class="num">@BusinessDaysSince(l.ShippingDate)</td>
                                 <td class="num @LockUrgencyClass(l.DaysUntilLockExpires)">@FmtLockUrgency(l.DaysUntilLockExpires)</td>
                             </tr>
                         }
@@ -253,6 +257,19 @@ else
 
     private static string FmtDays(double? d) => d is null ? "—" : $"{d:F1} d";
     private static string FmtMoney(decimal v) => v == 0m ? "" : $"${v:N0}";
+
+    // Count weekdays in (past, today] — Mon–Fri only. Holidays are NOT excluded.
+    private static int BusinessDaysSince(DateTime? past)
+    {
+        if (past is null) return 0;
+        var today = DateTime.Today;
+        if (today <= past.Value.Date) return 0;
+        var count = 0;
+        for (var d = past.Value.Date.AddDays(1); d <= today; d = d.AddDays(1))
+            if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday)
+                count++;
+        return count;
+    }
 
     // ─── Sorting ────────────────────────────────────────────────────────────
 
