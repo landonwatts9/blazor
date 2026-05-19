@@ -81,6 +81,7 @@ else if (incomeStatement is not null || balanceSheet is not null)
         <button class="tab @(tab == "bs" ? "active" : "")" @onclick='() => tab = "bs"'>Balance Sheet</button>
         <button class="tab @(tab == "exp" ? "active" : "")" @onclick='() => tab = "exp"'>Expense Detail</button>
         <button class="tab @(tab == "trend" ? "active" : "")" @onclick='() => tab = "trend"'>Trending IS</button>
+        <button class="tab @(tab == "exptrend" ? "active" : "")" @onclick='() => tab = "exptrend"'>Trending Expense</button>
     </div>
 
     @if (tab == "is" && incomeStatement is not null)
@@ -375,6 +376,155 @@ else if (incomeStatement is not null || balanceSheet is not null)
             }
         </div>
     }
+
+    @if (tab == "exptrend")
+    {
+        <div class="card">
+            <h3>Trending Expense</h3>
+            <div class="trend-filters">
+                <div class="period-group">
+                    <label>SUBCATEGORY</label>
+                    <select @bind="trendExpSubcategory">
+                        @foreach (var grp in FinancialService.ExpenseGroupsForUi)
+                        {
+                            <optgroup label="@grp.Category">
+                                @foreach (var sub in grp.Subcategories)
+                                {
+                                    <option value="@sub">@sub</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                </div>
+                <div class="period-group">
+                    <label>WINDOW</label>
+                    <select @bind="trendExpWindow">
+                        <option value="3">3 months</option>
+                        <option value="6">6 months</option>
+                        <option value="12">12 months</option>
+                    </select>
+                </div>
+                <button class="btn-apply" @onclick="ApplyTrendExp" disabled="@(trendExpLoading || periodA is null)">
+                    @(trendExpLoading ? "Loading..." : "Show")
+                </button>
+                <span class="muted">Anchor = Period A (right-most column)</span>
+            </div>
+
+            @if (expenseTrend is null)
+            {
+                <p class="empty">Pick a subcategory and click Show.</p>
+            }
+            else if (expenseTrend.Months.Count == 0)
+            {
+                <p class="empty">No closed months fall inside the window ending @expenseTrend.Anchor.ToString("MMM yyyy"). Pick a different Period A or window length.</p>
+            }
+            else
+            {
+                var et = expenseTrend;
+                <p class="muted small">
+                    @et.Category &middot; @et.Subcategory &middot; @et.Months.Count month@(et.Months.Count == 1 ? "" : "s") ending @et.Anchor.ToString("MMM yyyy")
+                </p>
+                <div class="trend-scroll">
+                    <table class="trend-table">
+                        <thead>
+                            <tr>
+                                <th class="label sticky-col">Vendor</th>
+                                @foreach (var m in et.Months)
+                                {
+                                    <th class="num">@m.ToString("MMM yy")</th>
+                                }
+                                <th class="num">Total</th>
+                                <th class="num"># Txns</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="total">
+                                <td class="label sticky-col">@et.Subcategory Total</td>
+                                @for (var i = 0; i < et.Months.Count; i++)
+                                {
+                                    <td class="num">@FmtMoney(et.SubcategoryTotals[i])</td>
+                                }
+                                <td class="num">@FmtMoney(et.SubcategoryTotals.Sum())</td>
+                                <td class="num">@et.SubcategoryTxnCounts.Sum().ToString("N0")</td>
+                            </tr>
+                            @foreach (var v in et.Vendors)
+                            {
+                                var key = v.Vendor;
+                                var open = trendExpExpanded.Contains(key);
+                                var isLoading = trendExpLoadingVendors.Contains(key);
+                                <tr class="line expandable" @onclick="() => ToggleTrendExpVendor(v)">
+                                    <td class="label sticky-col">
+                                        <span class="chevron @(open ? "open" : "")">▶</span>
+                                        @v.Vendor
+                                    </td>
+                                    @for (var i = 0; i < et.Months.Count; i++)
+                                    {
+                                        <td class="num">@FmtMoney(v.Values[i])</td>
+                                    }
+                                    <td class="num"><strong>@FmtMoney(v.Total)</strong></td>
+                                    <td class="num">@v.TotalTxnCount.ToString("N0")</td>
+                                </tr>
+                                @if (open)
+                                {
+                                    <tr class="expanded-row">
+                                        <td colspan="@(et.Months.Count + 3)">
+                                            @if (isLoading)
+                                            {
+                                                <p class="empty-sub">Loading transactions…</p>
+                                            }
+                                            else
+                                            {
+                                                var txns = trendExpTxCache.GetValueOrDefault(key);
+                                                @if (txns is null || txns.Count == 0)
+                                                {
+                                                    <p class="empty-sub">No transactions for @v.Vendor in this window.</p>
+                                                }
+                                                else
+                                                {
+                                                    <div class="tx-header">@v.Vendor — @txns.Count transaction@(txns.Count == 1 ? "" : "s")</div>
+                                                    <table class="data-table nested tx-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Date</th>
+                                                                <th>JE #</th>
+                                                                <th>Account</th>
+                                                                <th>Branch</th>
+                                                                <th>Memo</th>
+                                                                <th class="num">Amount</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var x in txns)
+                                                            {
+                                                                <tr>
+                                                                    <td>@x.PostDate.ToString("M/d/yy")</td>
+                                                                    <td>@x.JournalNumber</td>
+                                                                    <td>@x.GlAccount @(x.AccountDesc is null ? "" : "— " + x.AccountDesc)</td>
+                                                                    <td>@x.Branch</td>
+                                                                    <td>@x.Memo</td>
+                                                                    <td class="num">@x.Amount.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                        <tfoot>
+                                                            <tr>
+                                                                <td colspan="5" class="label">Total</td>
+                                                                <td class="num">@FmtMoney(txns.Sum(x => x.Amount))</td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                }
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
 }
 }
 
@@ -400,6 +550,17 @@ else if (incomeStatement is not null || balanceSheet is not null)
     private readonly HashSet<string> shownTx = new(StringComparer.Ordinal);
     private readonly HashSet<string> loadingTx = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IReadOnlyList<ExpenseTransactionRow>> txCache = new(StringComparer.Ordinal);
+
+    // ── Trending Expense tab state ──
+    // The tab manages its own subcategory + window filters separate from the
+    // main Period A / Period B bar (Period A still drives the anchor month).
+    private string trendExpSubcategory = "Facility Expense";
+    private int trendExpWindow = 6;
+    private bool trendExpLoading;
+    private ExpenseTrendResult? expenseTrend;
+    private readonly HashSet<string> trendExpExpanded = new(StringComparer.Ordinal);
+    private readonly HashSet<string> trendExpLoadingVendors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<ExpenseTransactionRow>> trendExpTxCache = new(StringComparer.Ordinal);
 
     protected override async Task OnInitializedAsync()
     {
@@ -443,6 +604,11 @@ else if (incomeStatement is not null || balanceSheet is not null)
         shownTx.Clear();
         loadingTx.Clear();
         txCache.Clear();
+        // Trending Expense tab is anchored to Period A — clear its state too.
+        expenseTrend = null;
+        trendExpExpanded.Clear();
+        trendExpLoadingVendors.Clear();
+        trendExpTxCache.Clear();
         try
         {
             var isTask    = Svc.GetIncomeStatementAsync(a, b);
@@ -492,6 +658,54 @@ else if (incomeStatement is not null || balanceSheet is not null)
     }
 
     private static string SubKey(ExpenseSubcategoryRow s) => $"{s.Category}|{s.Label}";
+
+    // ── Trending Expense handlers ──
+
+    private async Task ApplyTrendExp()
+    {
+        if (periodA is null || !DateOnly.TryParse(periodA, out var anchor)) return;
+        trendExpLoading = true;
+        expenseTrend = null;
+        trendExpExpanded.Clear();
+        trendExpLoadingVendors.Clear();
+        trendExpTxCache.Clear();
+        try
+        {
+            expenseTrend = await Svc.GetExpenseTrendAsync(trendExpSubcategory, anchor, trendExpWindow);
+        }
+        finally
+        {
+            trendExpLoading = false;
+        }
+    }
+
+    private async Task ToggleTrendExpVendor(ExpenseTrendVendorRow v)
+    {
+        var key = v.Vendor;
+        if (trendExpExpanded.Contains(key))
+        {
+            trendExpExpanded.Remove(key);
+            return;
+        }
+        if (!trendExpTxCache.ContainsKey(key) && expenseTrend is not null)
+        {
+            trendExpLoadingVendors.Add(key);
+            trendExpExpanded.Add(key);  // open immediately so the "Loading…" row shows
+            try
+            {
+                trendExpTxCache[key] = await Svc.GetExpenseTransactionsAcrossMonthsAsync(
+                    expenseTrend.Subcategory, v.Vendor, expenseTrend.Months);
+            }
+            finally
+            {
+                trendExpLoadingVendors.Remove(key);
+            }
+        }
+        else
+        {
+            trendExpExpanded.Add(key);
+        }
+    }
 
     private static string TxKey(ExpenseVendorRow v, DateOnly period) =>
         $"{v.Category}|{v.Subcategory}|{v.Vendor}|{period:yyyy-MM-dd}";

@@ -185,6 +185,19 @@
    reads at a glance. */
 .data-table td.sub-indent { padding-left: 1.5rem; }
 
+/* ── Trending Expense filter bar (subcategory + window picker) ─────── */
+
+.trend-filters {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    margin: 0.25rem 0 1rem 0;
+    flex-wrap: wrap;
+}
+.trend-filters .period-group select { min-width: 220px; }
+.trend-filters .muted { font-size: 0.78rem; color: #64748b; align-self: center; }
+.muted.small { font-size: 0.8rem; margin: 0 0 0.75rem 0; color: #64748b; }
+
 /* ── Trending IS ──────────────────────────────────────────────────── */
 
 /* Horizontal scroll container — the trend table can be 12+ columns wide. */
@@ -253,6 +266,18 @@
 .trend-table tr.subtotal td.sticky-col { background: #fafbfc; }
 .trend-table tr.total td.sticky-col    { background: #eef2f7; }
 .trend-table tr.hdr td.sticky-col      { background: #f1f5f9; }
+
+/* Expandable rows on the Trending Expense tab. */
+.trend-table tr.expandable { cursor: pointer; }
+.trend-table tr.expandable:hover td.sticky-col { background: #eef2f7; }
+.trend-table tr.expandable:hover td { background: #f8fafc; }
+.trend-table tr.expanded-row > td {
+    background: #f9fafb;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: normal;     /* let the nested JE table wrap if needed */
+}
+.trend-table tr.expanded-row td.sticky-col { position: static; box-shadow: none; }
 
 /* Expandable row: subcategory rows are clickable, with a rotating chevron. */
 .data-table tr.expandable { cursor: pointer; }

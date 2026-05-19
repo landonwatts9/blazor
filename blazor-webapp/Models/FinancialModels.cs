@@ -61,6 +61,28 @@ public record TrendingFinRow(
     FinStyle Style,
     IReadOnlyList<decimal> Values);
 
+/// <summary>
+/// One-subcategory expense trend: monthly totals plus per-vendor breakdown
+/// across an N-month window ending at Anchor. All decimal arrays are parallel
+/// to the Months list.
+/// </summary>
+public record ExpenseTrendResult(
+    string Category,
+    string Subcategory,
+    DateOnly Anchor,
+    int WindowMonths,
+    IReadOnlyList<DateOnly> Months,
+    IReadOnlyList<decimal> SubcategoryTotals,
+    IReadOnlyList<int> SubcategoryTxnCounts,
+    IReadOnlyList<ExpenseTrendVendorRow> Vendors);
+
+public record ExpenseTrendVendorRow(
+    string Vendor,
+    IReadOnlyList<decimal> Values,
+    IReadOnlyList<int> TxnCounts,
+    decimal Total,
+    int TotalTxnCount);
+
 // ─── Expense Detail ─────────────────────────────────────────────────────────
 
 /// <summary>

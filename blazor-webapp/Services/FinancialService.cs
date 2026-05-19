@@ -247,6 +247,15 @@ WHERE finstmt_type = 'IncomeStatement'";
         })
     };
 
+    /// <summary>
+    /// Exposes the expense category/subcategory layout for UI dropdowns.
+    /// Returned as a flat list grouped by category, in display order.
+    /// </summary>
+    public static IReadOnlyList<(string Category, IReadOnlyList<string> Subcategories)> ExpenseGroupsForUi { get; } =
+        ExpenseLayout
+            .Select(g => (g.Category, (IReadOnlyList<string>)g.Subcategories))
+            .ToList();
+
     // Hardcoded into the SQL string — values are compile-time-known, never
     // user input, so SQL-injection safe.
     private static readonly string ExpenseCategoryInList =
@@ -380,6 +389,131 @@ ORDER BY post_date DESC, journal_number DESC";
             ("@vendor", vendor),
             ("@unspecified", unspecified));
         return rows;
+    }
+
+    // ─── Trending Expense (single subcategory, N months) ──────────────────────
+
+    private const string ExpenseTrendSql = @"
+SELECT endofmonth,
+       CASE WHEN vendor_name IS NULL OR LTRIM(RTRIM(vendor_name)) = ''
+            THEN '(Unspecified)' ELSE vendor_name END AS vendor,
+       SUM(amount) AS amount,
+       SUM(COALESCE(transaction_count, 0)) AS txn_count
+FROM dbo.vw_financialgl
+WHERE finstmt_type = 'IncomeStatement'
+  AND fin_level5 = @subcategory
+  AND endofmonth >= @start AND endofmonth <= @end
+GROUP BY endofmonth,
+         CASE WHEN vendor_name IS NULL OR LTRIM(RTRIM(vendor_name)) = ''
+              THEN '(Unspecified)' ELSE vendor_name END
+HAVING SUM(amount) <> 0";
+
+    public Task<ExpenseTrendResult> GetExpenseTrendAsync(
+        string subcategory, DateOnly anchor, int windowMonths) =>
+        Cached($"financial:exp-trend:{anchor:yyyy-MM-dd}:{windowMonths}:{subcategory}",
+            () => FetchExpenseTrendAsync(subcategory, anchor, windowMonths));
+
+    private async Task<ExpenseTrendResult> FetchExpenseTrendAsync(
+        string subcategory, DateOnly anchor, int windowMonths)
+    {
+        // Determine which fin_level4 category this subcategory belongs to.
+        // If it doesn't match anything, we still query — the result will be
+        // empty and the UI will say "no activity".
+        var category = ExpenseLayout
+            .FirstOrDefault(g => g.Subcategories.Contains(subcategory))
+            .Category ?? "Unknown";
+
+        var anchorFirst = new DateTime(anchor.Year, anchor.Month, 1);
+        var candidates = Enumerable.Range(0, windowMonths)
+            .Select(i => DateOnly.FromDateTime(
+                anchorFirst.AddMonths(-(windowMonths - 1) + i).AddMonths(1).AddDays(-1)))
+            .ToList();
+
+        var closed = (await GetClosedPeriodsAsync()).Select(c => c.PeriodEnd).ToHashSet();
+        var months = candidates.Where(closed.Contains).ToList();
+
+        if (months.Count == 0)
+        {
+            return new ExpenseTrendResult(
+                Category: category, Subcategory: subcategory,
+                Anchor: anchor, WindowMonths: windowMonths,
+                Months: Array.Empty<DateOnly>(),
+                SubcategoryTotals: Array.Empty<decimal>(),
+                SubcategoryTxnCounts: Array.Empty<int>(),
+                Vendors: Array.Empty<ExpenseTrendVendorRow>());
+        }
+
+        var rows = await _sql.QueryAsync(ExpenseTrendSql,
+            ("@subcategory", subcategory),
+            ("@start", months.First().ToDateTime(TimeOnly.MinValue)),
+            ("@end",   months.Last().ToDateTime(TimeOnly.MinValue)));
+
+        // Build a (vendor -> month -> amount) lookup so we can pivot to vendor rows.
+        var byVendorMonth = new Dictionary<(string vendor, DateOnly month), (decimal amt, int cnt)>();
+        foreach (var r in rows)
+        {
+            var vendor = (string)r["vendor"]!;
+            var month = DateOnly.FromDateTime((DateTime)r["endofmonth"]!);
+            byVendorMonth[(vendor, month)] = (ToDec(r["amount"]), ToInt(r["txn_count"]));
+        }
+
+        var distinctVendors = byVendorMonth.Keys.Select(k => k.vendor).Distinct().ToList();
+
+        var vendorRows = distinctVendors
+            .Select(vendor =>
+            {
+                var vals = months
+                    .Select(m => byVendorMonth.TryGetValue((vendor, m), out var x) ? x.amt : 0m)
+                    .ToList();
+                var counts = months
+                    .Select(m => byVendorMonth.TryGetValue((vendor, m), out var x) ? x.cnt : 0)
+                    .ToList();
+                return new ExpenseTrendVendorRow(
+                    Vendor: vendor,
+                    Values: vals,
+                    TxnCounts: counts,
+                    Total: vals.Sum(),
+                    TotalTxnCount: counts.Sum());
+            })
+            .OrderByDescending(v => v.Total)
+            .ToList();
+
+        var subTotals = months
+            .Select(m => vendorRows.Sum(v =>
+                v.Values[months.IndexOf(m)]))    // small N (≤12) so IndexOf is fine
+            .ToList();
+        var subCounts = months
+            .Select(m => vendorRows.Sum(v =>
+                v.TxnCounts[months.IndexOf(m)]))
+            .ToList();
+
+        return new ExpenseTrendResult(
+            Category: category, Subcategory: subcategory,
+            Anchor: anchor, WindowMonths: windowMonths,
+            Months: months,
+            SubcategoryTotals: subTotals,
+            SubcategoryTxnCounts: subCounts,
+            Vendors: vendorRows);
+    }
+
+    /// <summary>
+    /// Fetches all JE lines for one vendor in one subcategory across N months.
+    /// Fans out to GetExpenseTransactionsAsync per-month (which caches), then
+    /// merges and sorts chronologically. Used for the vendor-row expand on the
+    /// Trending Expense tab.
+    /// </summary>
+    public async Task<IReadOnlyList<ExpenseTransactionRow>> GetExpenseTransactionsAcrossMonthsAsync(
+        string subcategory, string vendor, IReadOnlyList<DateOnly> months)
+    {
+        var tasks = months
+            .Select(m => GetExpenseTransactionsAsync(subcategory, vendor, m))
+            .ToList();
+        await Task.WhenAll(tasks);
+        return tasks
+            .SelectMany(t => t.Result)
+            .OrderByDescending(x => x.PostDate)
+            .ThenByDescending(x => x.JournalNumber)
+            .ToList();
     }
 
     // ─── Trending Income Statement ────────────────────────────────────────────
