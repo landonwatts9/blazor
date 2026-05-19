@@ -33,6 +33,12 @@ public static class DashboardCatalog
         Description: "Loan officer production with CW/MTD/YTD breakdown plus channel, funnel, leaderboard, and trend.",
         Route: "/originations");
 
+    public static readonly DashboardEntry PostClosing = new(
+        Key: "postclosing",
+        Title: "Post Closing Pipeline",
+        Description: "Funded → shipped → purchased tracking with lock-expiration risk.",
+        Route: "/postclosing");
+
     public static readonly IReadOnlyList<DashboardEntry> All =
-        new[] { Monthly, Historical, ProcessorPipeline, Originations };
+        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing };
 }

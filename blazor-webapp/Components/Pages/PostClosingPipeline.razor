@@ -1,0 +1,345 @@
+@page "/postclosing"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@inject PostClosingService Svc
+@inject AccessService Access
+
+<PageTitle>Post Closing Pipeline</PageTitle>
+
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else
+{
+<div class="period-bar">
+    <div class="period-group">
+        <label>KPI WINDOW</label>
+        <select @bind="windowDays">
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="60">Last 60 days</option>
+            <option value="90">Last 90 days</option>
+        </select>
+    </div>
+    <div class="period-group">
+        <label>LOCK TYPE</label>
+        <select @bind="lockType">
+            <option value="All">All</option>
+            <option value="Mandatory">Mandatory</option>
+            <option value="Best Efforts">Best Efforts</option>
+        </select>
+    </div>
+    <div class="period-group">
+        <label>CHANNEL</label>
+        <select @bind="channel">
+            <option value="All">All</option>
+            <option value="Retail">Retail</option>
+            <option value="HECM">HECM</option>
+            <option value="Brokered">Brokered</option>
+            <option value="Correspondent">Correspondent</option>
+        </select>
+    </div>
+    <button class="btn-apply" @onclick="Apply" disabled="@loading">
+        @(loading ? "Loading..." : "Apply")
+    </button>
+</div>
+
+@if (data is null)
+{
+    <p class="empty">@(loading ? "Loading..." : "Select filters and click Apply.")</p>
+}
+else
+{
+    <div class="kpi-row primary">
+        <KpiCard Label="@($"# SHIPPED LAST {windowDays}d")" Value="@data.Kpis.ShippedLast30.ToString("N0")"        Accent="teal" />
+        <KpiCard Label="AVG DAYS FUND → SHIP"               Value="@FmtDays(data.Kpis.AvgFundToShipDays)"            Accent="teal" />
+        <KpiCard Label="@($"# PURCHASED LAST {windowDays}d")" Value="@data.Kpis.PurchasedLast30.ToString("N0")"      Accent="blue" />
+        <KpiCard Label="AVG DAYS SHIP → PURCHASE"           Value="@FmtDays(data.Kpis.AvgShipToPurchaseDays)"        Accent="blue" />
+        <KpiCard Label="LOCK EXPIRED"                       Value="@data.Kpis.LockExpiredCount.ToString("N0")"
+                 SubLabel="Shipped, lock past expiration"   Accent="red" />
+        <KpiCard Label="LOCK ≤ 7 DAYS"                      Value="@data.Kpis.LockExpiringSoonCount.ToString("N0")"
+                 SubLabel="Shipped, lock expiring soon"     Accent="amber" />
+    </div>
+
+    <div class="pc-grid">
+        <!-- Left: Funded Not Shipped -->
+        <div class="card">
+            <h3>Funded Not Shipped <span class="muted">@data.FundedNotShipped.Count loan(s)</span></h3>
+            @if (data.FundedNotShipped.Count == 0)
+            {
+                <p class="empty">No funded loans waiting to ship.</p>
+            }
+            else
+            {
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            @SortHeader("LoanNumber",       "Loan #",   fnsSort, fnsDesc, SortFns)
+                            @SortHeader("BorrowerLastname", "Name",     fnsSort, fnsDesc, SortFns)
+                            @SortHeader("InvestorName",     "Investor", fnsSort, fnsDesc, SortFns)
+                            @SortHeader("FundingDate",      "Fund Date", fnsSort, fnsDesc, SortFns)
+                            @SortHeader("DaysSinceFunding", "Days",     fnsSort, fnsDesc, SortFns, numeric: true)
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in SortedFunded)
+                        {
+                            <tr>
+                                <td>@l.LoanNumber</td>
+                                <td>@l.BorrowerLastname</td>
+                                <td>@l.InvestorName</td>
+                                <td>@l.FundingDate?.ToString("M/d/yy")</td>
+                                <td class="num"><span class="aging-pill @AgingClass(l.DaysSinceFunding)">@l.DaysSinceFunding</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <!-- Right: Shipped Not Purchased -->
+        <div class="card">
+            <h3>Shipped Not Purchased <span class="muted">@data.ShippedNotPurchased.Count loan(s)</span></h3>
+            <div class="pc-tabs">
+                <button class="pc-tab @(snpTab == "loan" ? "active" : "")"     @onclick='() => snpTab = "loan"'>By Loan</button>
+                <button class="pc-tab @(snpTab == "investor" ? "active" : "")" @onclick='() => snpTab = "investor"'>By Investor</button>
+            </div>
+
+            @if (data.ShippedNotPurchased.Count == 0)
+            {
+                <p class="empty">No shipped loans awaiting purchase.</p>
+            }
+            else if (snpTab == "loan")
+            {
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            @SortHeader("LoanNumber",            "Loan #",        snpSort, snpDesc, SortSnp)
+                            @SortHeader("BorrowerLastname",      "Name",          snpSort, snpDesc, SortSnp)
+                            @SortHeader("InvestorName",          "Investor",      snpSort, snpDesc, SortSnp)
+                            @SortHeader("LockType",              "Type",          snpSort, snpDesc, SortSnp)
+                            @SortHeader("InvestorLockDate",      "Inv Lock Date", snpSort, snpDesc, SortSnp)
+                            @SortHeader("ShippingDate",          "Ship Date",     snpSort, snpDesc, SortSnp)
+                            @SortHeader("LockExpirationDate",    "Lock Exp",      snpSort, snpDesc, SortSnp)
+                            @SortHeader("DaysSinceShipped",      "Days Shipped",  snpSort, snpDesc, SortSnp, numeric: true)
+                            @SortHeader("DaysUntilLockExpires",  "Until Exp",     snpSort, snpDesc, SortSnp, numeric: true)
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in SortedShipped)
+                        {
+                            <tr>
+                                <td>@l.LoanNumber</td>
+                                <td>@l.BorrowerLastname</td>
+                                <td>@l.InvestorName</td>
+                                <td>@l.LockType</td>
+                                <td>@l.InvestorLockDate?.ToString("M/d/yy")</td>
+                                <td>@l.ShippingDate?.ToString("M/d/yy")</td>
+                                <td>@l.LockExpirationDate?.ToString("M/d/yy")</td>
+                                <td class="num"><span class="aging-pill @AgingClass(l.DaysSinceShipped)">@l.DaysSinceShipped</span></td>
+                                <td class="num @LockUrgencyClass(l.DaysUntilLockExpires)">@FmtLockUrgency(l.DaysUntilLockExpires)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            @SortHeader("InvestorName",            "Investor",       invSort, invDesc, SortInv)
+                            @SortHeader("LoanCount",               "Loans",          invSort, invDesc, SortInv, numeric: true)
+                            @SortHeader("MandatoryCount",          "Mandatory",      invSort, invDesc, SortInv, numeric: true)
+                            @SortHeader("TotalFundedAmount",       "Funded $",       invSort, invDesc, SortInv, numeric: true)
+                            @SortHeader("OldestDaysSinceShipped",  "Oldest Aging",   invSort, invDesc, SortInv, numeric: true)
+                            @SortHeader("LockExpiredCount",        "Lock Expired",   invSort, invDesc, SortInv, numeric: true)
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in SortedInvestorRollup)
+                        {
+                            <tr>
+                                <td>@r.InvestorName</td>
+                                <td class="num">@r.LoanCount</td>
+                                <td class="num">@(r.MandatoryCount == 0 ? "" : r.MandatoryCount.ToString())</td>
+                                <td class="num">@FmtMoney(r.TotalFundedAmount)</td>
+                                <td class="num"><span class="aging-pill @AgingClass(r.OldestDaysSinceShipped)">@r.OldestDaysSinceShipped</span></td>
+                                <td class="num @(r.LockExpiredCount > 0 ? "lock-urgency expired" : "")">
+                                    @(r.LockExpiredCount == 0 ? "" : r.LockExpiredCount.ToString())
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+}
+
+@code {
+    private bool accessChecked;
+    private bool authorized;
+
+    private int windowDays = 30;
+    private string lockType = "All";
+    private string channel = "All";
+    private string snpTab = "loan";
+    private bool loading;
+
+    private PostClosingResponse? data;
+
+    private string fnsSort = "DaysSinceFunding";
+    private bool fnsDesc = true;
+    private string snpSort = "DaysSinceShipped";
+    private bool snpDesc = true;
+    private string invSort = "OldestDaysSinceShipped";
+    private bool invDesc = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await Access.CurrentUsernameAsync();
+        authorized = await Access.CanAccessAsync(user, "postclosing");
+        accessChecked = true;
+        if (!authorized) return;
+        await Apply();
+    }
+
+    private async Task Apply()
+    {
+        loading = true;
+        data = null;
+        try
+        {
+            data = await Svc.GetAsync(windowDays, lockType, channel);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    // ─── Aging / lock urgency styling ───────────────────────────────────────
+
+    private static string AgingClass(int days) =>
+        days <= 3 ? "green" : days <= 7 ? "yellow" : "red";
+
+    private static string LockUrgencyClass(int? days) =>
+        days is null ? "" :
+        days < 0 ? "lock-urgency expired" :
+        days <= 3 ? "lock-urgency expired" :
+        days <= 7 ? "lock-urgency soon" : "";
+
+    private static string FmtLockUrgency(int? days) =>
+        days is null ? "—" :
+        days < 0 ? "Expired" :
+        $"{days}d";
+
+    private static string FmtDays(double? d) => d is null ? "—" : $"{d:F1} d";
+    private static string FmtMoney(decimal v) => v == 0m ? "" : $"${v:N0}";
+
+    // ─── Sorting ────────────────────────────────────────────────────────────
+
+    private void SortFns(string col) { Toggle(col, ref fnsSort, ref fnsDesc); }
+    private void SortSnp(string col) { Toggle(col, ref snpSort, ref snpDesc); }
+    private void SortInv(string col) { Toggle(col, ref invSort, ref invDesc); }
+
+    private static void Toggle(string col, ref string cur, ref bool desc)
+    {
+        if (cur == col) desc = !desc;
+        else { cur = col; desc = true; }
+    }
+
+    private static readonly Dictionary<string, Func<FundedNotShippedRow, object?>> FnsKeys = new()
+    {
+        ["LoanNumber"]       = x => x.LoanNumber,
+        ["BorrowerLastname"] = x => x.BorrowerLastname,
+        ["InvestorName"]     = x => x.InvestorName,
+        ["FundingDate"]      = x => x.FundingDate,
+        ["DaysSinceFunding"] = x => x.DaysSinceFunding,
+    };
+
+    private static readonly Dictionary<string, Func<ShippedNotPurchasedRow, object?>> SnpKeys = new()
+    {
+        ["LoanNumber"]           = x => x.LoanNumber,
+        ["BorrowerLastname"]     = x => x.BorrowerLastname,
+        ["InvestorName"]         = x => x.InvestorName,
+        ["LockType"]             = x => x.LockType,
+        ["InvestorLockDate"]     = x => x.InvestorLockDate,
+        ["ShippingDate"]         = x => x.ShippingDate,
+        ["LockExpirationDate"]   = x => x.LockExpirationDate,
+        ["DaysSinceShipped"]     = x => x.DaysSinceShipped,
+        ["DaysUntilLockExpires"] = x => x.DaysUntilLockExpires,
+    };
+
+    private static readonly Dictionary<string, Func<InvestorRollupRow, object?>> InvKeys = new()
+    {
+        ["InvestorName"]           = x => x.InvestorName,
+        ["LoanCount"]              = x => x.LoanCount,
+        ["MandatoryCount"]         = x => x.MandatoryCount,
+        ["TotalFundedAmount"]      = x => x.TotalFundedAmount,
+        ["OldestDaysSinceShipped"] = x => x.OldestDaysSinceShipped,
+        ["LockExpiredCount"]       = x => x.LockExpiredCount,
+    };
+
+    private IEnumerable<FundedNotShippedRow> SortedFunded =>
+        data is null ? Enumerable.Empty<FundedNotShippedRow>()
+        : ApplySort(data.FundedNotShipped, fnsSort, fnsDesc, FnsKeys);
+
+    private IEnumerable<ShippedNotPurchasedRow> SortedShipped =>
+        data is null ? Enumerable.Empty<ShippedNotPurchasedRow>()
+        : ApplySort(data.ShippedNotPurchased, snpSort, snpDesc, SnpKeys);
+
+    private IEnumerable<InvestorRollupRow> SortedInvestorRollup =>
+        data is null ? Enumerable.Empty<InvestorRollupRow>()
+        : ApplySort(BuildInvestorRollup(data.ShippedNotPurchased), invSort, invDesc, InvKeys);
+
+    private static IEnumerable<InvestorRollupRow> BuildInvestorRollup(IReadOnlyList<ShippedNotPurchasedRow> rows) =>
+        rows.GroupBy(r => string.IsNullOrWhiteSpace(r.InvestorName) ? "(Unknown)" : r.InvestorName!)
+            .Select(g => new InvestorRollupRow(
+                InvestorName: g.Key,
+                LoanCount: g.Count(),
+                MandatoryCount: g.Count(x => x.LockType == "Mandatory"),
+                TotalFundedAmount: g.Sum(x => x.FundedAmount ?? 0m),
+                OldestDaysSinceShipped: g.Max(x => x.DaysSinceShipped),
+                LockExpiredCount: g.Count(x => x.DaysUntilLockExpires is not null && x.DaysUntilLockExpires < 0)));
+
+    private static IEnumerable<T> ApplySort<T>(IEnumerable<T> src, string col, bool desc,
+        Dictionary<string, Func<T, object?>> keys)
+    {
+        var key = keys.GetValueOrDefault(col) ?? keys.Values.First();
+        return desc ? src.OrderByDescending(key, NullFirstComparer.Instance)
+                    : src.OrderBy(key, NullFirstComparer.Instance);
+    }
+
+    private sealed class NullFirstComparer : IComparer<object?>
+    {
+        public static readonly NullFirstComparer Instance = new();
+        public int Compare(object? x, object? y) => (x, y) switch
+        {
+            (null, null) => 0,
+            (null, _)    => -1,
+            (_, null)    => 1,
+            _            => Comparer<object>.Default.Compare(x, y)
+        };
+    }
+
+    private RenderFragment SortHeader(string col, string label, string current, bool desc,
+        Action<string> onClick, bool numeric = false) => builder =>
+    {
+        var classes = "sortable" + (numeric ? " num" : "") + (current == col ? " sort-active" : "");
+        var arrow = current == col ? (desc ? "▼" : "▲") : "↕";
+        builder.OpenElement(0, "th");
+        builder.AddAttribute(1, "class", classes);
+        builder.AddAttribute(2, "onclick", EventCallback.Factory.Create(this, () => onClick(col)));
+        builder.AddContent(3, label);
+        builder.OpenElement(4, "span");
+        builder.AddAttribute(5, "class", "sort-indicator");
+        builder.AddContent(6, arrow);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+}
