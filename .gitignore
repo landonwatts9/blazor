@@ -73,3 +73,6 @@ secrets.json
 
 ## Reference source (Python port — not part of deployed app)
 webapp_previousversion/
+
+## docs/ — markdown plans get committed, binary reference files (xlsx) stay local
+docs/*.xlsx
