@@ -39,7 +39,8 @@ SELECT
     g.estimatedclosing_date
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
-WHERE g.uw_currentstatus IN ('Submitted for Final Approval','In Review','To Be Assigned','Assigned')
+WHERE g.currentloanfolder = 'My Pipeline'
+  AND g.uw_currentstatus IN ('Submitted for Final Approval','In Review','To Be Assigned','Assigned')
 ORDER BY g.expected_signing_date, g.loan_number";
 
     // Tab 2: CD Turn Time
@@ -56,7 +57,8 @@ SELECT
     g.estimatedclosing_date
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
-WHERE g.cdstatus IN ('Needed','Assigned')
+WHERE g.currentloanfolder = 'My Pipeline'
+  AND g.cdstatus IN ('Needed','Assigned')
 ORDER BY g.expected_signing_date, g.loan_number";
 
     // Tab 3: Closing Docs Turn Time
@@ -72,7 +74,8 @@ SELECT
     g.estimatedclosing_date
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
-WHERE g.milestone_status = 'Send to Closing'
+WHERE g.currentloanfolder = 'My Pipeline'
+  AND g.milestone_status = 'Send to Closing'
 ORDER BY g.expected_signing_date, g.loan_number";
 
     // Tab 4: Funding Turn Time (filter by RegZ disbursement date == today)
