@@ -45,6 +45,12 @@ public static class DashboardCatalog
         Description: "Income statement, balance sheet, expense detail, and 12-month trending for closed accounting periods.",
         Route: "/financial");
 
+    public static readonly DashboardEntry Processing = new(
+        Key: "processing",
+        Title: "Processing",
+        Description: "UW, CD, Closing Docs, and Funding turn-time tracking.",
+        Route: "/processing");
+
     public static readonly IReadOnlyList<DashboardEntry> All =
-        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing, Financial };
+        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing, Financial, Processing };
 }

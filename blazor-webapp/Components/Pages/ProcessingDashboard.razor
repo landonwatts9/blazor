@@ -1,0 +1,359 @@
+@page "/processing"
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@inject ProcessingService Svc
+@inject AccessService Access
+
+<PageTitle>Processing Dashboard</PageTitle>
+
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else
+{
+    <div class="proc-layout">
+        <header class="proc-header">
+            <div class="proc-title">
+                <h1>Processing Dashboard</h1>
+                <div class="proc-sub">Turn-time tracking — UW, CD, Closing Docs, Funding</div>
+            </div>
+            <div class="proc-today">Today is @DateTime.Today.ToString("yyyy-MM-dd")</div>
+            <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Refresh")</button>
+        </header>
+
+        <div class="tabs">
+            <button class="tab @(tab == "uw" ? "active" : "")"      @onclick='() => SelectTab("uw")'>UW Turn Time</button>
+            <button class="tab @(tab == "cd" ? "active" : "")"      @onclick='() => SelectTab("cd")'>CD Turn Time</button>
+            <button class="tab @(tab == "docs" ? "active" : "")"    @onclick='() => SelectTab("docs")'>Closing Docs Turn Time</button>
+            <button class="tab @(tab == "funding" ? "active" : "")" @onclick='() => SelectTab("funding")'>Funding Turn Time</button>
+        </div>
+
+        <main class="proc-content">
+            @if (tab == "uw")
+            {
+                @if (uw is null) { <p class="empty">Loading...</p> }
+                else if (uw.Count == 0) { <p class="empty">No loans match the UW status filter.</p> }
+                else
+                {
+                    <div class="card">
+                        <table class="data-table proc-table">
+                            <thead>
+                                <tr>
+                                    @SortHeader("LoanNumber",          "Loan #",                uwSort, uwDesc, SortUw, numeric: true)
+                                    @SortHeader("BorrowerName",        "Borrower",              uwSort, uwDesc, SortUw)
+                                    @SortHeader("UwStatus",            "UW Current Status",     uwSort, uwDesc, SortUw)
+                                    @SortHeader("UwStatusDate",        "UW Log Status (Date/Time)", uwSort, uwDesc, SortUw)
+                                    @SortHeader("ProcessorName",       "Processor",             uwSort, uwDesc, SortUw)
+                                    @SortHeader("LoanOfficerName",     "Loan Officer",          uwSort, uwDesc, SortUw)
+                                    @SortHeader("ExpectedSigningDate", "Expected Signing",      uwSort, uwDesc, SortUw)
+                                    @SortHeader("EstClosingDate",      "Est. Closing",          uwSort, uwDesc, SortUw)
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in SortedUw)
+                                {
+                                    <tr>
+                                        <td class="num">@r.LoanNumber</td>
+                                        <td>@r.BorrowerName</td>
+                                        <td>@r.UwStatus</td>
+                                        <td>@FmtDateTime(r.UwStatusDate)</td>
+                                        <td>@r.ProcessorName</td>
+                                        <td>@r.LoanOfficerName</td>
+                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                        <td>@FmtDate(r.EstClosingDate)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+            else if (tab == "cd")
+            {
+                @if (cd is null) { <p class="empty">Loading...</p> }
+                else if (cd.Count == 0) { <p class="empty">No loans match the CD status filter.</p> }
+                else
+                {
+                    <div class="card">
+                        <table class="data-table proc-table">
+                            <thead>
+                                <tr>
+                                    @SortHeader("LoanNumber",          "Loan #",                cdSort, cdDesc, SortCd, numeric: true)
+                                    @SortHeader("BorrowerName",        "Borrower",              cdSort, cdDesc, SortCd)
+                                    @SortHeader("CdStatus",            "CD Status",             cdSort, cdDesc, SortCd)
+                                    @SortHeader("EarlyCdAuditDate",    "Early CD Audit",        cdSort, cdDesc, SortCd)
+                                    @SortHeader("CdAuditDate",         "CD Audit",              cdSort, cdDesc, SortCd)
+                                    @SortHeader("ProcessorName",       "Processor",             cdSort, cdDesc, SortCd)
+                                    @SortHeader("LoanOfficerName",     "Loan Officer",          cdSort, cdDesc, SortCd)
+                                    @SortHeader("ExpectedSigningDate", "Expected Signing",      cdSort, cdDesc, SortCd)
+                                    @SortHeader("EstClosingDate",      "Est. Closing",          cdSort, cdDesc, SortCd)
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in SortedCd)
+                                {
+                                    <tr>
+                                        <td class="num">@r.LoanNumber</td>
+                                        <td>@r.BorrowerName</td>
+                                        <td>@r.CdStatus</td>
+                                        <td>@FmtDateTime(r.EarlyCdAuditDate)</td>
+                                        <td>@FmtDateTime(r.CdAuditDate)</td>
+                                        <td>@r.ProcessorName</td>
+                                        <td>@r.LoanOfficerName</td>
+                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                        <td>@FmtDate(r.EstClosingDate)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+            else if (tab == "docs")
+            {
+                @if (docs is null) { <p class="empty">Loading...</p> }
+                else if (docs.Count == 0) { <p class="empty">No loans currently at the Send-to-Closing milestone.</p> }
+                else
+                {
+                    <div class="card">
+                        <table class="data-table proc-table">
+                            <thead>
+                                <tr>
+                                    @SortHeader("LoanNumber",          "Loan #",                docsSort, docsDesc, SortDocs, numeric: true)
+                                    @SortHeader("BorrowerName",        "Borrower",              docsSort, docsDesc, SortDocs)
+                                    @SortHeader("LastMilestone",       "Last Finished Milestone", docsSort, docsDesc, SortDocs)
+                                    @SortHeader("LastMilestoneDate",   "Milestone Date (Date/Time)", docsSort, docsDesc, SortDocs)
+                                    @SortHeader("ProcessorName",       "Processor",             docsSort, docsDesc, SortDocs)
+                                    @SortHeader("LoanOfficerName",     "Loan Officer",          docsSort, docsDesc, SortDocs)
+                                    @SortHeader("ExpectedSigningDate", "Expected Signing",      docsSort, docsDesc, SortDocs)
+                                    @SortHeader("EstClosingDate",      "Est. Closing",          docsSort, docsDesc, SortDocs)
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in SortedDocs)
+                                {
+                                    <tr>
+                                        <td class="num">@r.LoanNumber</td>
+                                        <td>@r.BorrowerName</td>
+                                        <td>@r.LastMilestone</td>
+                                        <td>@FmtDateTime(r.LastMilestoneDate)</td>
+                                        <td>@r.ProcessorName</td>
+                                        <td>@r.LoanOfficerName</td>
+                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                        <td>@FmtDate(r.EstClosingDate)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+            else if (tab == "funding")
+            {
+                @if (funding is null) { <p class="empty">Loading...</p> }
+                else if (funding.Count == 0) { <p class="empty">No loans funded today (yet).</p> }
+                else
+                {
+                    <div class="card">
+                        <table class="data-table proc-table">
+                            <thead>
+                                <tr>
+                                    @SortHeader("LoanNumber",          "Loan #",           fundSort, fundDesc, SortFund, numeric: true)
+                                    @SortHeader("BorrowerName",        "Borrower",         fundSort, fundDesc, SortFund)
+                                    @SortHeader("ProcessorName",       "Processor",        fundSort, fundDesc, SortFund)
+                                    @SortHeader("LoanOfficerName",     "Loan Officer",     fundSort, fundDesc, SortFund)
+                                    @SortHeader("ExpectedSigningDate", "Expected Signing", fundSort, fundDesc, SortFund)
+                                    @SortHeader("EstClosingDate",      "Est. Closing",     fundSort, fundDesc, SortFund)
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in SortedFunding)
+                                {
+                                    <tr>
+                                        <td class="num">@r.LoanNumber</td>
+                                        <td>@r.BorrowerName</td>
+                                        <td>@r.ProcessorName</td>
+                                        <td>@r.LoanOfficerName</td>
+                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                        <td>@FmtDate(r.EstClosingDate)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </main>
+    </div>
+}
+
+@code {
+    private bool accessChecked;
+    private bool authorized;
+    private bool loading;
+    private string tab = "uw";
+
+    private IReadOnlyList<UwTurnTimeRow>? uw;
+    private IReadOnlyList<CdTurnTimeRow>? cd;
+    private IReadOnlyList<ClosingDocsTurnTimeRow>? docs;
+    private IReadOnlyList<FundingTurnTimeRow>? funding;
+
+    // Per-tab sort state. Default: ExpectedSigningDate ASC for tabs 1–3, LO for tab 4.
+    private string uwSort = "ExpectedSigningDate";     private bool uwDesc = false;
+    private string cdSort = "ExpectedSigningDate";     private bool cdDesc = false;
+    private string docsSort = "ExpectedSigningDate";   private bool docsDesc = false;
+    private string fundSort = "LoanOfficerName";       private bool fundDesc = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await Access.CurrentUsernameAsync();
+        authorized = await Access.CanAccessAsync(user, "processing");
+        accessChecked = true;
+        if (!authorized) return;
+        await Apply();
+    }
+
+    private async Task Apply()
+    {
+        uw = null;
+        cd = null;
+        docs = null;
+        funding = null;
+        loading = true;
+        try
+        {
+            await EnsureTabLoaded(tab);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SelectTab(string next)
+    {
+        tab = next;
+        await EnsureTabLoaded(next);
+    }
+
+    private async Task EnsureTabLoaded(string which)
+    {
+        switch (which)
+        {
+            case "uw"      when uw is null:      uw = await Svc.GetUwAsync(); break;
+            case "cd"      when cd is null:      cd = await Svc.GetCdAsync(); break;
+            case "docs"    when docs is null:    docs = await Svc.GetClosingDocsAsync(); break;
+            case "funding" when funding is null: funding = await Svc.GetFundingAsync(); break;
+        }
+    }
+
+    // ─── Sort helpers ────────────────────────────────────────────────────────
+
+    private static readonly Dictionary<string, Func<UwTurnTimeRow, object?>> UwKeys = new()
+    {
+        ["LoanNumber"]          = x => x.LoanNumber,
+        ["BorrowerName"]        = x => x.BorrowerName,
+        ["UwStatus"]            = x => x.UwStatus,
+        ["UwStatusDate"]        = x => x.UwStatusDate,
+        ["ProcessorName"]       = x => x.ProcessorName,
+        ["LoanOfficerName"]     = x => x.LoanOfficerName,
+        ["ExpectedSigningDate"] = x => x.ExpectedSigningDate,
+        ["EstClosingDate"]      = x => x.EstClosingDate,
+    };
+    private static readonly Dictionary<string, Func<CdTurnTimeRow, object?>> CdKeys = new()
+    {
+        ["LoanNumber"]          = x => x.LoanNumber,
+        ["BorrowerName"]        = x => x.BorrowerName,
+        ["CdStatus"]            = x => x.CdStatus,
+        ["EarlyCdAuditDate"]    = x => x.EarlyCdAuditDate,
+        ["CdAuditDate"]         = x => x.CdAuditDate,
+        ["ProcessorName"]       = x => x.ProcessorName,
+        ["LoanOfficerName"]     = x => x.LoanOfficerName,
+        ["ExpectedSigningDate"] = x => x.ExpectedSigningDate,
+        ["EstClosingDate"]      = x => x.EstClosingDate,
+    };
+    private static readonly Dictionary<string, Func<ClosingDocsTurnTimeRow, object?>> DocsKeys = new()
+    {
+        ["LoanNumber"]          = x => x.LoanNumber,
+        ["BorrowerName"]        = x => x.BorrowerName,
+        ["LastMilestone"]       = x => x.LastMilestone,
+        ["LastMilestoneDate"]   = x => x.LastMilestoneDate,
+        ["ProcessorName"]       = x => x.ProcessorName,
+        ["LoanOfficerName"]     = x => x.LoanOfficerName,
+        ["ExpectedSigningDate"] = x => x.ExpectedSigningDate,
+        ["EstClosingDate"]      = x => x.EstClosingDate,
+    };
+    private static readonly Dictionary<string, Func<FundingTurnTimeRow, object?>> FundKeys = new()
+    {
+        ["LoanNumber"]          = x => x.LoanNumber,
+        ["BorrowerName"]        = x => x.BorrowerName,
+        ["ProcessorName"]       = x => x.ProcessorName,
+        ["LoanOfficerName"]     = x => x.LoanOfficerName,
+        ["ExpectedSigningDate"] = x => x.ExpectedSigningDate,
+        ["EstClosingDate"]      = x => x.EstClosingDate,
+    };
+
+    private void SortUw(string col)   => ToggleSort(col, ref uwSort, ref uwDesc);
+    private void SortCd(string col)   => ToggleSort(col, ref cdSort, ref cdDesc);
+    private void SortDocs(string col) => ToggleSort(col, ref docsSort, ref docsDesc);
+    private void SortFund(string col) => ToggleSort(col, ref fundSort, ref fundDesc);
+
+    private static void ToggleSort(string col, ref string current, ref bool desc)
+    {
+        if (current == col) desc = !desc;
+        else { current = col; desc = false; }
+    }
+
+    private IEnumerable<UwTurnTimeRow> SortedUw
+        => uw is null ? Enumerable.Empty<UwTurnTimeRow>() : ApplySort(uw, uwSort, uwDesc, UwKeys);
+    private IEnumerable<CdTurnTimeRow> SortedCd
+        => cd is null ? Enumerable.Empty<CdTurnTimeRow>() : ApplySort(cd, cdSort, cdDesc, CdKeys);
+    private IEnumerable<ClosingDocsTurnTimeRow> SortedDocs
+        => docs is null ? Enumerable.Empty<ClosingDocsTurnTimeRow>() : ApplySort(docs, docsSort, docsDesc, DocsKeys);
+    private IEnumerable<FundingTurnTimeRow> SortedFunding
+        => funding is null ? Enumerable.Empty<FundingTurnTimeRow>() : ApplySort(funding, fundSort, fundDesc, FundKeys);
+
+    private static IEnumerable<T> ApplySort<T>(IEnumerable<T> src, string col, bool desc,
+        Dictionary<string, Func<T, object?>> keys)
+    {
+        var key = keys.GetValueOrDefault(col) ?? keys.Values.First();
+        return desc ? src.OrderByDescending(key, NullFirstComparer.Instance)
+                    : src.OrderBy(key, NullFirstComparer.Instance);
+    }
+
+    private sealed class NullFirstComparer : IComparer<object?>
+    {
+        public static readonly NullFirstComparer Instance = new();
+        public int Compare(object? x, object? y) => (x, y) switch
+        {
+            (null, null) => 0,
+            (null, _)    => -1,
+            (_, null)    => 1,
+            _            => Comparer<object>.Default.Compare(x, y)
+        };
+    }
+
+    private RenderFragment SortHeader(string col, string label, string current, bool desc,
+        Action<string> onClick, bool numeric = false) => builder =>
+    {
+        var classes = "sortable" + (numeric ? " num" : "") + (current == col ? " sort-active" : "");
+        var arrow = current == col ? (desc ? "▼" : "▲") : "↕";
+        builder.OpenElement(0, "th");
+        builder.AddAttribute(1, "class", classes);
+        builder.AddAttribute(2, "onclick", EventCallback.Factory.Create(this, () => onClick(col)));
+        builder.AddContent(3, label);
+        builder.OpenElement(4, "span");
+        builder.AddAttribute(5, "class", "sort-indicator");
+        builder.AddContent(6, arrow);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private static string FmtDate(DateTime? d) => d?.ToString("yyyy-MM-dd") ?? "";
+    private static string FmtDateTime(DateTime? d) =>
+        d is null ? "" : d.Value.TimeOfDay == TimeSpan.Zero
+            ? d.Value.ToString("yyyy-MM-dd")
+            : d.Value.ToString("yyyy-MM-dd HH:mm");
+}

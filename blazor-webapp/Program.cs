@@ -58,6 +58,7 @@ public class Program
         builder.Services.AddScoped<OriginationsService>();
         builder.Services.AddScoped<PostClosingService>();
         builder.Services.AddScoped<FinancialService>();
+        builder.Services.AddScoped<ProcessingService>();
         builder.Services.AddScoped<AccessService>();
         builder.Services.AddApexCharts();
 
