@@ -92,7 +92,36 @@ LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
 WHERE CAST(g.closingdocs_regzdisbursement_date AS DATE) = CAST(GETDATE() AS DATE)
 ORDER BY lo, g.loan_number";
 
+    // KPI counts for the header row — one round-trip, same filters as each tab's SQL.
+    private const string CountsSql = @"
+SELECT
+    (SELECT COUNT(*) FROM dbo.EncompassLoan_Gold
+       WHERE currentloanfolder='My Pipeline'
+         AND uw_currentstatus IN ('Submitted for Final Approval','In Review','To Be Assigned','Assigned')) AS uw_count,
+    (SELECT COUNT(*) FROM dbo.EncompassLoan_Gold
+       WHERE currentloanfolder='My Pipeline'
+         AND cdstatus IN ('Needed','Assigned')) AS cd_count,
+    (SELECT COUNT(*) FROM dbo.EncompassLoan_Gold
+       WHERE currentloanfolder='My Pipeline'
+         AND milestone_status='Send to Closing') AS docs_count,
+    (SELECT COUNT(*) FROM dbo.EncompassLoan_Gold
+       WHERE CAST(closingdocs_regzdisbursement_date AS DATE) = CAST(GETDATE() AS DATE)) AS funding_count";
+
     // ─── Fetchers ────────────────────────────────────────────────────────────
+
+    public Task<ProcessingCounts> GetCountsAsync() =>
+        Cached($"processing:counts:{DateTime.Today:yyyyMMdd}", FetchCountsAsync);
+
+    private async Task<ProcessingCounts> FetchCountsAsync()
+    {
+        var rows = await _sql.QueryAsync(CountsSql);
+        var r = rows.Single();
+        return new ProcessingCounts(
+            UwCount: Convert.ToInt32(r["uw_count"]),
+            CdCount: Convert.ToInt32(r["cd_count"]),
+            ClosingDocsCount: Convert.ToInt32(r["docs_count"]),
+            FundingCount: Convert.ToInt32(r["funding_count"]));
+    }
 
     public Task<IReadOnlyList<UwTurnTimeRow>> GetUwAsync() =>
         Cached("processing:uw", FetchUwAsync);

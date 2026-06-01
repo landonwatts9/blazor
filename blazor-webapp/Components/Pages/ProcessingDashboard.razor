@@ -13,15 +13,28 @@
 }
 else
 {
-    <div class="proc-layout">
-        <header class="proc-header">
-            <div class="proc-title">
-                <h1>Processing Dashboard</h1>
-                <div class="proc-sub">Turn-time tracking — UW, CD, Closing Docs, Funding</div>
-            </div>
-            <div class="proc-today">Today is @DateTime.Today.ToString("yyyy-MM-dd")</div>
-            <button class="btn-apply" @onclick="Apply" disabled="@loading">@(loading ? "Loading..." : "Refresh")</button>
-        </header>
+    <div class="period-bar">
+        <div class="period-group">
+            <label>AS OF</label>
+            <div class="static-value">@DateTime.Today.ToString("yyyy-MM-dd")</div>
+        </div>
+        <button class="btn-apply" @onclick="Apply" disabled="@loading">
+            @(loading ? "Loading..." : "Refresh")
+        </button>
+    </div>
+
+    @if (counts is null)
+    {
+        <p class="empty">@(loading ? "Loading..." : "Click Refresh to load.")</p>
+    }
+    else
+    {
+        <div class="kpi-row primary">
+            <KpiCard Label="UW TURN TIME"           Value="@counts.UwCount.ToString("N0")"           SubLabel="loans"           Accent="blue" />
+            <KpiCard Label="CD TURN TIME"           Value="@counts.CdCount.ToString("N0")"           SubLabel="loans"           Accent="teal" />
+            <KpiCard Label="CLOSING DOCS"           Value="@counts.ClosingDocsCount.ToString("N0")"  SubLabel="loans"           Accent="amber" />
+            <KpiCard Label="FUNDING TODAY"          Value="@counts.FundingCount.ToString("N0")"      SubLabel="@($"funded {DateTime.Today:MM/dd}")" Accent="green" />
+        </div>
 
         <div class="tabs">
             <button class="tab @(tab == "uw" ? "active" : "")"      @onclick='() => SelectTab("uw")'>UW Turn Time</button>
@@ -30,163 +43,165 @@ else
             <button class="tab @(tab == "funding" ? "active" : "")" @onclick='() => SelectTab("funding")'>Funding Turn Time</button>
         </div>
 
-        <main class="proc-content">
-            @if (tab == "uw")
+        @if (tab == "uw")
+        {
+            @if (uw is null) { <p class="empty">Loading...</p> }
+            else if (uw.Count == 0) { <p class="empty">No loans in My Pipeline match the UW status filter.</p> }
+            else
             {
-                @if (uw is null) { <p class="empty">Loading...</p> }
-                else if (uw.Count == 0) { <p class="empty">No loans match the UW status filter.</p> }
-                else
-                {
-                    <div class="card">
-                        <table class="data-table proc-table">
-                            <thead>
+                <div class="card">
+                    <h3>UW Turn Time <span class="muted">My Pipeline · @uw.Count loans</span></h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                @SortHeader("LoanNumber",          "Loan #",                    uwSort, uwDesc, SortUw, numeric: true)
+                                @SortHeader("BorrowerName",        "Borrower",                  uwSort, uwDesc, SortUw)
+                                @SortHeader("UwStatus",            "UW Current Status",         uwSort, uwDesc, SortUw)
+                                @SortHeader("UwStatusDate",        "UW Log Status (Date/Time)", uwSort, uwDesc, SortUw)
+                                @SortHeader("ProcessorName",       "Processor",                 uwSort, uwDesc, SortUw)
+                                @SortHeader("LoanOfficerName",     "Loan Officer",              uwSort, uwDesc, SortUw)
+                                @SortHeader("ExpectedSigningDate", "Expected Signing",          uwSort, uwDesc, SortUw)
+                                @SortHeader("EstClosingDate",      "Est. Closing",              uwSort, uwDesc, SortUw)
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in SortedUw)
+                            {
                                 <tr>
-                                    @SortHeader("LoanNumber",          "Loan #",                uwSort, uwDesc, SortUw, numeric: true)
-                                    @SortHeader("BorrowerName",        "Borrower",              uwSort, uwDesc, SortUw)
-                                    @SortHeader("UwStatus",            "UW Current Status",     uwSort, uwDesc, SortUw)
-                                    @SortHeader("UwStatusDate",        "UW Log Status (Date/Time)", uwSort, uwDesc, SortUw)
-                                    @SortHeader("ProcessorName",       "Processor",             uwSort, uwDesc, SortUw)
-                                    @SortHeader("LoanOfficerName",     "Loan Officer",          uwSort, uwDesc, SortUw)
-                                    @SortHeader("ExpectedSigningDate", "Expected Signing",      uwSort, uwDesc, SortUw)
-                                    @SortHeader("EstClosingDate",      "Est. Closing",          uwSort, uwDesc, SortUw)
+                                    <td class="num">@r.LoanNumber</td>
+                                    <td>@r.BorrowerName</td>
+                                    <td>@r.UwStatus</td>
+                                    <td>@FmtDateTime(r.UwStatusDate)</td>
+                                    <td>@r.ProcessorName</td>
+                                    <td>@r.LoanOfficerName</td>
+                                    <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                    <td>@FmtDate(r.EstClosingDate)</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var r in SortedUw)
-                                {
-                                    <tr>
-                                        <td class="num">@r.LoanNumber</td>
-                                        <td>@r.BorrowerName</td>
-                                        <td>@r.UwStatus</td>
-                                        <td>@FmtDateTime(r.UwStatusDate)</td>
-                                        <td>@r.ProcessorName</td>
-                                        <td>@r.LoanOfficerName</td>
-                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
-                                        <td>@FmtDate(r.EstClosingDate)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
-            else if (tab == "cd")
+        }
+        else if (tab == "cd")
+        {
+            @if (cd is null) { <p class="empty">Loading...</p> }
+            else if (cd.Count == 0) { <p class="empty">No loans in My Pipeline match the CD status filter.</p> }
+            else
             {
-                @if (cd is null) { <p class="empty">Loading...</p> }
-                else if (cd.Count == 0) { <p class="empty">No loans match the CD status filter.</p> }
-                else
-                {
-                    <div class="card">
-                        <table class="data-table proc-table">
-                            <thead>
+                <div class="card">
+                    <h3>CD Turn Time <span class="muted">My Pipeline · @cd.Count loans</span></h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                @SortHeader("LoanNumber",          "Loan #",                cdSort, cdDesc, SortCd, numeric: true)
+                                @SortHeader("BorrowerName",        "Borrower",              cdSort, cdDesc, SortCd)
+                                @SortHeader("CdStatus",            "CD Status",             cdSort, cdDesc, SortCd)
+                                @SortHeader("EarlyCdAuditDate",    "Early CD Audit",        cdSort, cdDesc, SortCd)
+                                @SortHeader("CdAuditDate",         "CD Audit",              cdSort, cdDesc, SortCd)
+                                @SortHeader("ProcessorName",       "Processor",             cdSort, cdDesc, SortCd)
+                                @SortHeader("LoanOfficerName",     "Loan Officer",          cdSort, cdDesc, SortCd)
+                                @SortHeader("ExpectedSigningDate", "Expected Signing",      cdSort, cdDesc, SortCd)
+                                @SortHeader("EstClosingDate",      "Est. Closing",          cdSort, cdDesc, SortCd)
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in SortedCd)
+                            {
                                 <tr>
-                                    @SortHeader("LoanNumber",          "Loan #",                cdSort, cdDesc, SortCd, numeric: true)
-                                    @SortHeader("BorrowerName",        "Borrower",              cdSort, cdDesc, SortCd)
-                                    @SortHeader("CdStatus",            "CD Status",             cdSort, cdDesc, SortCd)
-                                    @SortHeader("EarlyCdAuditDate",    "Early CD Audit",        cdSort, cdDesc, SortCd)
-                                    @SortHeader("CdAuditDate",         "CD Audit",              cdSort, cdDesc, SortCd)
-                                    @SortHeader("ProcessorName",       "Processor",             cdSort, cdDesc, SortCd)
-                                    @SortHeader("LoanOfficerName",     "Loan Officer",          cdSort, cdDesc, SortCd)
-                                    @SortHeader("ExpectedSigningDate", "Expected Signing",      cdSort, cdDesc, SortCd)
-                                    @SortHeader("EstClosingDate",      "Est. Closing",          cdSort, cdDesc, SortCd)
+                                    <td class="num">@r.LoanNumber</td>
+                                    <td>@r.BorrowerName</td>
+                                    <td>@r.CdStatus</td>
+                                    <td>@FmtDateTime(r.EarlyCdAuditDate)</td>
+                                    <td>@FmtDateTime(r.CdAuditDate)</td>
+                                    <td>@r.ProcessorName</td>
+                                    <td>@r.LoanOfficerName</td>
+                                    <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                    <td>@FmtDate(r.EstClosingDate)</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var r in SortedCd)
-                                {
-                                    <tr>
-                                        <td class="num">@r.LoanNumber</td>
-                                        <td>@r.BorrowerName</td>
-                                        <td>@r.CdStatus</td>
-                                        <td>@FmtDateTime(r.EarlyCdAuditDate)</td>
-                                        <td>@FmtDateTime(r.CdAuditDate)</td>
-                                        <td>@r.ProcessorName</td>
-                                        <td>@r.LoanOfficerName</td>
-                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
-                                        <td>@FmtDate(r.EstClosingDate)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
-            else if (tab == "docs")
+        }
+        else if (tab == "docs")
+        {
+            @if (docs is null) { <p class="empty">Loading...</p> }
+            else if (docs.Count == 0) { <p class="empty">No My Pipeline loans currently at the Send-to-Closing milestone.</p> }
+            else
             {
-                @if (docs is null) { <p class="empty">Loading...</p> }
-                else if (docs.Count == 0) { <p class="empty">No loans currently at the Send-to-Closing milestone.</p> }
-                else
-                {
-                    <div class="card">
-                        <table class="data-table proc-table">
-                            <thead>
+                <div class="card">
+                    <h3>Closing Docs Turn Time <span class="muted">My Pipeline · @docs.Count loans</span></h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                @SortHeader("LoanNumber",          "Loan #",                     docsSort, docsDesc, SortDocs, numeric: true)
+                                @SortHeader("BorrowerName",        "Borrower",                   docsSort, docsDesc, SortDocs)
+                                @SortHeader("LastMilestone",       "Last Finished Milestone",    docsSort, docsDesc, SortDocs)
+                                @SortHeader("LastMilestoneDate",   "Milestone Date (Date/Time)", docsSort, docsDesc, SortDocs)
+                                @SortHeader("ProcessorName",       "Processor",                  docsSort, docsDesc, SortDocs)
+                                @SortHeader("LoanOfficerName",     "Loan Officer",               docsSort, docsDesc, SortDocs)
+                                @SortHeader("ExpectedSigningDate", "Expected Signing",           docsSort, docsDesc, SortDocs)
+                                @SortHeader("EstClosingDate",      "Est. Closing",               docsSort, docsDesc, SortDocs)
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in SortedDocs)
+                            {
                                 <tr>
-                                    @SortHeader("LoanNumber",          "Loan #",                docsSort, docsDesc, SortDocs, numeric: true)
-                                    @SortHeader("BorrowerName",        "Borrower",              docsSort, docsDesc, SortDocs)
-                                    @SortHeader("LastMilestone",       "Last Finished Milestone", docsSort, docsDesc, SortDocs)
-                                    @SortHeader("LastMilestoneDate",   "Milestone Date (Date/Time)", docsSort, docsDesc, SortDocs)
-                                    @SortHeader("ProcessorName",       "Processor",             docsSort, docsDesc, SortDocs)
-                                    @SortHeader("LoanOfficerName",     "Loan Officer",          docsSort, docsDesc, SortDocs)
-                                    @SortHeader("ExpectedSigningDate", "Expected Signing",      docsSort, docsDesc, SortDocs)
-                                    @SortHeader("EstClosingDate",      "Est. Closing",          docsSort, docsDesc, SortDocs)
+                                    <td class="num">@r.LoanNumber</td>
+                                    <td>@r.BorrowerName</td>
+                                    <td>@r.LastMilestone</td>
+                                    <td>@FmtDateTime(r.LastMilestoneDate)</td>
+                                    <td>@r.ProcessorName</td>
+                                    <td>@r.LoanOfficerName</td>
+                                    <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                    <td>@FmtDate(r.EstClosingDate)</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var r in SortedDocs)
-                                {
-                                    <tr>
-                                        <td class="num">@r.LoanNumber</td>
-                                        <td>@r.BorrowerName</td>
-                                        <td>@r.LastMilestone</td>
-                                        <td>@FmtDateTime(r.LastMilestoneDate)</td>
-                                        <td>@r.ProcessorName</td>
-                                        <td>@r.LoanOfficerName</td>
-                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
-                                        <td>@FmtDate(r.EstClosingDate)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
-            else if (tab == "funding")
+        }
+        else if (tab == "funding")
+        {
+            @if (funding is null) { <p class="empty">Loading...</p> }
+            else if (funding.Count == 0) { <p class="empty">No loans funded today (yet).</p> }
+            else
             {
-                @if (funding is null) { <p class="empty">Loading...</p> }
-                else if (funding.Count == 0) { <p class="empty">No loans funded today (yet).</p> }
-                else
-                {
-                    <div class="card">
-                        <table class="data-table proc-table">
-                            <thead>
+                <div class="card">
+                    <h3>Funding Turn Time <span class="muted">funded @DateTime.Today.ToString("MM/dd/yyyy") · @funding.Count loans</span></h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                @SortHeader("LoanNumber",          "Loan #",           fundSort, fundDesc, SortFund, numeric: true)
+                                @SortHeader("BorrowerName",        "Borrower",         fundSort, fundDesc, SortFund)
+                                @SortHeader("ProcessorName",       "Processor",        fundSort, fundDesc, SortFund)
+                                @SortHeader("LoanOfficerName",     "Loan Officer",     fundSort, fundDesc, SortFund)
+                                @SortHeader("ExpectedSigningDate", "Expected Signing", fundSort, fundDesc, SortFund)
+                                @SortHeader("EstClosingDate",      "Est. Closing",     fundSort, fundDesc, SortFund)
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in SortedFunding)
+                            {
                                 <tr>
-                                    @SortHeader("LoanNumber",          "Loan #",           fundSort, fundDesc, SortFund, numeric: true)
-                                    @SortHeader("BorrowerName",        "Borrower",         fundSort, fundDesc, SortFund)
-                                    @SortHeader("ProcessorName",       "Processor",        fundSort, fundDesc, SortFund)
-                                    @SortHeader("LoanOfficerName",     "Loan Officer",     fundSort, fundDesc, SortFund)
-                                    @SortHeader("ExpectedSigningDate", "Expected Signing", fundSort, fundDesc, SortFund)
-                                    @SortHeader("EstClosingDate",      "Est. Closing",     fundSort, fundDesc, SortFund)
+                                    <td class="num">@r.LoanNumber</td>
+                                    <td>@r.BorrowerName</td>
+                                    <td>@r.ProcessorName</td>
+                                    <td>@r.LoanOfficerName</td>
+                                    <td>@FmtDate(r.ExpectedSigningDate)</td>
+                                    <td>@FmtDate(r.EstClosingDate)</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var r in SortedFunding)
-                                {
-                                    <tr>
-                                        <td class="num">@r.LoanNumber</td>
-                                        <td>@r.BorrowerName</td>
-                                        <td>@r.ProcessorName</td>
-                                        <td>@r.LoanOfficerName</td>
-                                        <td>@FmtDate(r.ExpectedSigningDate)</td>
-                                        <td>@FmtDate(r.EstClosingDate)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
-        </main>
-    </div>
+        }
+    }
 }
 
 @code {
@@ -195,6 +210,7 @@ else
     private bool loading;
     private string tab = "uw";
 
+    private ProcessingCounts? counts;
     private IReadOnlyList<UwTurnTimeRow>? uw;
     private IReadOnlyList<CdTurnTimeRow>? cd;
     private IReadOnlyList<ClosingDocsTurnTimeRow>? docs;
@@ -217,6 +233,7 @@ else
 
     private async Task Apply()
     {
+        counts = null;
         uw = null;
         cd = null;
         docs = null;
@@ -224,6 +241,7 @@ else
         loading = true;
         try
         {
+            counts = await Svc.GetCountsAsync();
             await EnsureTabLoaded(tab);
         }
         finally

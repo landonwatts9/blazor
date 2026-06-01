@@ -1,5 +1,11 @@
 namespace SamReporting.Models;
 
+public record ProcessingCounts(
+    int UwCount,
+    int CdCount,
+    int ClosingDocsCount,
+    int FundingCount);
+
 public record UwTurnTimeRow(
     long LoanNumber,
     string BorrowerName,
