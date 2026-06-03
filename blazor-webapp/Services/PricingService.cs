@@ -73,11 +73,17 @@ WHERE g.lock_date >= @start AND g.lock_date < @end
 
     // ─── KPIs ────────────────────────────────────────────────────────────────
 
+    // Net buy = 2218 (total buy price) − 3371 + NEWHUD.X1150. NULL on 3371/x1150
+    // is treated as 0 (no adjustment / no credit); NULL on the base 2218 stays
+    // NULL so unlocked-but-still-in-window loans don't poison aggregates.
+    private const string NetBuyExpr =
+        "(g.buyside_totalbuyprice - ISNULL(g.field_3371, 0) + ISNULL(g.newhud_x1150, 0))";
+
     private static readonly string KpisSql = $@"
 SELECT
     COUNT(*) AS locks,
     ISNULL(SUM(g.loanamount), 0) AS volume,
-    AVG(CAST((g.sellside_totalsellprice - g.buyside_totalbuyprice) * 100 AS FLOAT)) AS avg_margin_bps,
+    AVG(CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT)) AS avg_margin_bps,
     AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate,
     AVG(CAST(ISNULL(g.cure_amount, 0) + ISNULL(g.lender_credits, 0) AS DECIMAL(19, 2))) AS avg_concessions,
     100.0 * SUM(CASE WHEN g.companylead = 'Yes' THEN 1 ELSE 0 END) /
@@ -114,9 +120,9 @@ SELECT
     g.wholeloan_flag,
     g.companylead AS captured,
     g.interest_rate,
-    g.buyside_totalbuyprice AS buy_price,
+    {NetBuyExpr} AS buy_price,
     g.sellside_totalsellprice AS sell_price,
-    CAST((g.sellside_totalsellprice - g.buyside_totalbuyprice) * 100 AS FLOAT) AS margin_bps,
+    CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT) AS margin_bps,
     (ISNULL(g.cure_amount, 0) + ISNULL(g.lender_credits, 0)) AS concessions,
     g.loanamount
 FROM dbo.EncompassLoan_Gold g
@@ -156,7 +162,7 @@ SELECT
     COUNT(*) AS units,
     ISNULL(SUM(g.loanamount), 0) AS volume,
     AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate,
-    AVG(CAST((g.sellside_totalsellprice - g.buyside_totalbuyprice) * 100 AS FLOAT)) AS avg_margin_bps,
+    AVG(CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT)) AS avg_margin_bps,
     AVG(CAST(ISNULL(g.cure_amount, 0) + ISNULL(g.lender_credits, 0) AS DECIMAL(19, 2))) AS avg_concessions,
     100.0 * SUM(CASE WHEN g.companylead = 'Yes' THEN 1 ELSE 0 END) /
         NULLIF(SUM(CASE WHEN g.companylead IN ('Yes','No') THEN 1 ELSE 0 END), 0) AS capture_rate_pct,
@@ -193,7 +199,7 @@ SELECT
     COALESCE(lo.lo_name, g.loanofficer_name, '(Unassigned)') AS lo,
     COUNT(*) AS units,
     ISNULL(SUM(g.loanamount), 0) AS volume,
-    AVG(CAST((g.sellside_totalsellprice - g.buyside_totalbuyprice) * 100 AS FLOAT)) AS avg_margin_bps,
+    AVG(CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT)) AS avg_margin_bps,
     AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
