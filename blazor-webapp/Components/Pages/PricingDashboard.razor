@@ -179,7 +179,7 @@ else
                     }
                     else
                     {
-                        <ApexChart TItem="PricingTrendPoint" Options="MakeTrendOptions()" Height="380">
+                        <ApexChart @key="@($"trend-{trendMetric}")" TItem="PricingTrendPoint" Options="MakeTrendOptions()" Height="380">
                             @foreach (var (loName, points) in TrendSeries)
                             {
                                 <ApexPointSeries TItem="PricingTrendPoint" Items="points" Name="@loName"
@@ -209,7 +209,7 @@ else
                             </select>
                         </span>
                     </h3>
-                    <ApexChart TItem="VsRow" Options="MakeVsOptions()" Height="380">
+                    <ApexChart @key="@($"vs-{vsMetric}")" TItem="VsRow" Options="MakeVsOptions()" Height="380">
                         <ApexPointSeries TItem="VsRow" Items="VsRows" Name="@VsMetricLabel"
                                          SeriesType="SeriesType.Bar"
                                          XValue="@(e => e.LoName)"
