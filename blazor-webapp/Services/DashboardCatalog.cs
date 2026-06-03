@@ -51,6 +51,12 @@ public static class DashboardCatalog
         Description: "UW, CD, Closing Docs, and Funding turn-time tracking.",
         Route: "/processing");
 
+    public static readonly DashboardEntry Pricing = new(
+        Key: "pricing",
+        Title: "Pricing",
+        Description: "LO pricing analysis: locked margins, concessions, capture rate, 12-month trends.",
+        Route: "/pricing");
+
     public static readonly IReadOnlyList<DashboardEntry> All =
-        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing, Financial, Processing };
+        new[] { Monthly, Historical, ProcessorPipeline, Originations, PostClosing, Financial, Processing, Pricing };
 }

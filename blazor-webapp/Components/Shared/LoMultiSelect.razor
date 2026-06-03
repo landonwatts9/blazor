@@ -1,0 +1,97 @@
+@using SamReporting.Models
+
+<div class="lo-multi @(open ? "open" : "")">
+    <button type="button" class="lo-button" @onclick="Toggle">
+        <span class="lo-button-label">@ButtonLabel</span>
+        <span class="lo-caret">▾</span>
+    </button>
+
+    @if (open)
+    {
+        <div class="lo-panel" @onclick:stopPropagation="true">
+            <input class="lo-search" type="text" placeholder="Search…" @bind="search" @bind:event="oninput" />
+            <div class="lo-controls">
+                <button type="button" class="link" @onclick="SelectAll">Select all</button>
+                <span class="sep">·</span>
+                <button type="button" class="link" @onclick="ClearAll">Clear all</button>
+                <span class="count">@SelectedIds.Count selected</span>
+            </div>
+            <div class="lo-list">
+                @foreach (var opt in Filtered)
+                {
+                    var id = opt.NmlsId;
+                    var checkedNow = SelectedIds.Contains(id);
+                    <label class="lo-row">
+                        <input type="checkbox" checked="@checkedNow" @onchange="e => Toggle(id, e)" />
+                        <span>@opt.DisplayName</span>
+                    </label>
+                }
+                @if (!Filtered.Any())
+                {
+                    <div class="lo-empty">No LOs match.</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<LoOption> Options { get; set; } = Array.Empty<LoOption>();
+    [Parameter] public List<int> SelectedIds { get; set; } = new();
+    [Parameter] public EventCallback<List<int>> SelectedIdsChanged { get; set; }
+
+    private bool open;
+    private string search = "";
+
+    private IEnumerable<LoOption> Filtered =>
+        string.IsNullOrWhiteSpace(search)
+            ? Options
+            : Options.Where(o => o.DisplayName.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    private string ButtonLabel
+    {
+        get
+        {
+            if (Options.Count == 0) return "(loading LOs…)";
+            if (SelectedIds.Count == 0) return "All LOs";
+            if (SelectedIds.Count == Options.Count) return "All LOs";
+            if (SelectedIds.Count == 1)
+            {
+                var only = Options.FirstOrDefault(o => o.NmlsId == SelectedIds[0]);
+                return only?.DisplayName ?? "1 selected";
+            }
+            return $"{SelectedIds.Count} selected";
+        }
+    }
+
+    private void Toggle() => open = !open;
+
+    private async Task Toggle(int id, ChangeEventArgs e)
+    {
+        var on = e.Value is bool b && b;
+        var next = new List<int>(SelectedIds);
+        if (on)
+        {
+            if (!next.Contains(id)) next.Add(id);
+        }
+        else
+        {
+            next.Remove(id);
+        }
+        SelectedIds = next;
+        await SelectedIdsChanged.InvokeAsync(next);
+    }
+
+    private async Task SelectAll()
+    {
+        var next = Options.Select(o => o.NmlsId).ToList();
+        SelectedIds = next;
+        await SelectedIdsChanged.InvokeAsync(next);
+    }
+
+    private async Task ClearAll()
+    {
+        SelectedIds = new();
+        await SelectedIdsChanged.InvokeAsync(SelectedIds);
+    }
+}

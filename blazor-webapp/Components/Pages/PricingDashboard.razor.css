@@ -1,0 +1,112 @@
+.period-bar {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.period-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.period-group label { font-size: 0.7rem; letter-spacing: 0.08em; color: #64748b; text-transform: uppercase; }
+.period-group select, .period-group input {
+    padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;
+}
+
+.btn-apply {
+    background: #0B426A; color: #fff; border: none; padding: 0.5rem 1.2rem;
+    border-radius: 6px; font-weight: 600; cursor: pointer;
+}
+.btn-apply:hover:not(:disabled) { background: #0B86AF; }
+.btn-apply:disabled { opacity: 0.6; cursor: wait; }
+
+.empty { padding: 2rem 1.5rem; color: #64748b; }
+
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    padding: 1rem 1.5rem 0;
+}
+.kpi-row.primary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+@media (max-width: 1200px) {
+    .kpi-row.primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+    .kpi-row.primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+::deep .kpi-card {
+    background: #fff; border-radius: 8px; padding: 0.9rem 1rem;
+    border-left: 4px solid #0B426A;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    text-align: center;
+    min-width: 0;
+}
+::deep .kpi-card.accent-teal   { border-left-color: #14b8a6; }
+::deep .kpi-card.accent-blue   { border-left-color: #0B426A; }
+::deep .kpi-card.accent-amber  { border-left-color: #f59e0b; }
+::deep .kpi-card.accent-green  { border-left-color: #16a34a; }
+::deep .kpi-card.accent-red    { border-left-color: #dc2626; }
+::deep .kpi-card.accent-slate  { border-left-color: #64748b; }
+::deep .kpi-label {
+    font-size: 0.7rem; letter-spacing: 0.08em; color: #64748b;
+    text-transform: uppercase; margin-bottom: 0.3rem;
+}
+::deep .kpi-value {
+    font-size: 1.5rem; font-weight: 700; color: #0f172a;
+    white-space: nowrap; overflow: visible;
+}
+::deep .kpi-sub { font-size: 0.7rem; color: #64748b; margin-top: 0.2rem; }
+
+.tabs {
+    display: flex; gap: 0; padding: 1rem 1.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.tab {
+    background: transparent; border: none;
+    padding: 0.6rem 1.1rem; font-weight: 500; color: #64748b; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: #0B426A; }
+.tab.active { color: #0B426A; border-bottom-color: #0B426A; font-weight: 600; }
+
+.card {
+    background: #fff; margin: 0 1.5rem 1rem; padding: 1rem 1.25rem;
+    border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow-x: auto;
+}
+.card h3 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.card h3 .muted { font-size: 0.78rem; color: #64748b; font-weight: 400; }
+.card h3 .metric-toggle { margin-left: auto; font-size: 0.78rem; color: #475569; display: inline-flex; align-items: center; gap: 0.4rem; }
+.card h3 .metric-toggle label { color: #64748b; }
+.card h3 .metric-toggle select { padding: 0.25rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.82rem; }
+
+.muted { color: #64748b; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.data-table ::deep th, .data-table ::deep td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+.data-table ::deep th {
+    background-color: #0B426A !important;
+    color: #fff !important;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    padding: 0.55rem 0.5rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid #0B426A;
+}
+.data-table ::deep td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table ::deep th.num { text-align: center; font-variant-numeric: tabular-nums; }
+.data-table ::deep tbody tr:nth-child(even) td { background: #f8fafc; }
+.data-table ::deep tbody tr:hover td { background: #eef2f7; }
+
+.data-table ::deep th.sortable { cursor: pointer; user-select: none; }
+.data-table ::deep th.sortable:hover { background: #0B86AF !important; }
+.data-table ::deep th .sort-indicator { display: inline-block; margin-left: 0.25rem; color: #cbd5e1; font-size: 0.7em; }
+.data-table ::deep th.sort-active .sort-indicator { color: #fff; }

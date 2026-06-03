@@ -1,0 +1,86 @@
+.lo-multi {
+    position: relative;
+    display: inline-block;
+}
+.lo-button {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    min-width: 200px;
+    text-align: left;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.lo-button:hover { border-color: #0B86AF; }
+.lo-button-label { flex: 1; color: #0f172a; }
+.lo-caret { color: #64748b; font-size: 0.7rem; }
+.lo-multi.open .lo-caret { transform: rotate(180deg); }
+
+.lo-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    width: 320px;
+    z-index: 50;
+    padding: 0.5rem;
+}
+.lo-search {
+    width: 100%;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+}
+.lo-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-bottom: 0.4rem;
+}
+.lo-controls .link {
+    background: none;
+    border: none;
+    color: #0B86AF;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+}
+.lo-controls .link:hover { text-decoration: underline; }
+.lo-controls .count { margin-left: auto; color: #475569; }
+.lo-controls .sep { color: #cbd5e1; }
+
+.lo-list {
+    max-height: 280px;
+    overflow-y: auto;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 0.3rem;
+}
+.lo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    border-radius: 3px;
+}
+.lo-row:hover { background: #f1f5f9; }
+.lo-row input { margin: 0; }
+
+.lo-empty {
+    padding: 0.6rem;
+    color: #94a3b8;
+    text-align: center;
+    font-size: 0.85rem;
+}
