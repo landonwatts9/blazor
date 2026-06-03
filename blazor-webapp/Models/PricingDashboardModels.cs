@@ -4,13 +4,14 @@ public record PricingFilter(
     DateTime Start,
     DateTime End,
     IReadOnlyList<int>? NmlsIds,
-    string? CaptureFilter)
+    string? CaptureFilter,
+    string? Channel)
 {
     /// <summary>Stable string for cache keys.</summary>
     public string Key()
     {
         var ids = NmlsIds is null || NmlsIds.Count == 0 ? "all" : string.Join(",", NmlsIds.OrderBy(x => x));
-        return $"{Start:yyyyMMdd}:{End:yyyyMMdd}:{CaptureFilter ?? "*"}:{ids}";
+        return $"{Start:yyyyMMdd}:{End:yyyyMMdd}:{CaptureFilter ?? "*"}:{Channel ?? "*"}:{ids}";
     }
 }
 

@@ -51,6 +51,7 @@ ORDER BY lo_name";
     private const string WhereCore = @"
 WHERE g.lock_date >= @start AND g.lock_date < @end
   AND (@captureFilter IS NULL OR g.companylead = @captureFilter)
+  AND (@channel IS NULL OR g.loanchannel_summary = @channel)
   AND (@noLoFilter = 1 OR g.loanofficer_nmlsid IN (SELECT TRY_CAST(value AS BIGINT) FROM STRING_SPLIT(@nmlsCsv, ',')))";
 
     private static (string, object?)[] BuildParams(PricingFilter f, DateTime? startOverride = null, DateTime? endOverride = null)
@@ -64,6 +65,7 @@ WHERE g.lock_date >= @start AND g.lock_date < @end
             ("@start", start),
             ("@end", end),
             ("@captureFilter", string.IsNullOrEmpty(f.CaptureFilter) ? null : f.CaptureFilter),
+            ("@channel", string.IsNullOrEmpty(f.Channel) ? null : f.Channel),
             ("@noLoFilter", noLo),
             ("@nmlsCsv", csv),
         };

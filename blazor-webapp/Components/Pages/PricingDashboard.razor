@@ -32,6 +32,15 @@ else
             </select>
         </div>
         <div class="period-group">
+            <label>CHANNEL</label>
+            <select @bind="channelFilter">
+                <option value="">All</option>
+                <option value="Retail">Retail</option>
+                <option value="HECM">HECM</option>
+                <option value="Brokered">Brokered</option>
+            </select>
+        </div>
+        <div class="period-group">
             <label>LOAN OFFICERS</label>
             <LoMultiSelect Options="loOptions" @bind-SelectedIds="selectedLoIds" />
         </div>
@@ -51,8 +60,7 @@ else
             <KpiCard Label="VOLUME LOCKED"     Value="@FmtMoneyShort(kpis.Volume)"                               Accent="teal" />
             <KpiCard Label="AVG MARGIN (BPS)"  Value="@kpis.AvgMarginBps.ToString("F1")"  SubLabel="sell − buy"  Accent="amber" />
             <KpiCard Label="AVG RATE"          Value="@($"{kpis.AvgRate:F3}%")"                                  Accent="slate" />
-            <KpiCard Label="AVG CONCESSIONS"   Value="@FmtMoney(kpis.AvgConcessions)" SubLabel="per loan"        Accent="red" />
-            <KpiCard Label="CAPTURE RATE"      Value="@($"{kpis.CaptureRatePct:F1}%")" SubLabel="of yes/no loans" Accent="green" />
+            <KpiCard Label="CAPTURED RATE"     Value="@($"{kpis.CaptureRatePct:F1}%")" SubLabel="of yes/no loans" Accent="green" />
         </div>
 
         <div class="tabs">
@@ -60,7 +68,6 @@ else
             <button class="tab @(tab == "lo" ? "active" : "")"      @onclick='() => SelectTab("lo")'>LO Summary</button>
             <button class="tab @(tab == "trend" ? "active" : "")"   @onclick='() => SelectTab("trend")'>Historical Trend</button>
             <button class="tab @(tab == "vs" ? "active" : "")"      @onclick='() => SelectTab("vs")'>LO vs Company</button>
-            <button class="tab @(tab == "conc" ? "active" : "")"    @onclick='() => SelectTab("conc")'>Concession Analysis</button>
         </div>
 
         @if (tab == "detail")
@@ -80,13 +87,11 @@ else
                                 @SortHeader("LoName",        "LO",          detailSort, detailDesc, SortDetail)
                                 @SortHeader("Channel",       "Channel",     detailSort, detailDesc, SortDetail)
                                 @SortHeader("CommitmentType","Commit",      detailSort, detailDesc, SortDetail)
-                                @SortHeader("WholeLoan",     "Whole Loan",  detailSort, detailDesc, SortDetail)
                                 @SortHeader("Captured",      "Captured",    detailSort, detailDesc, SortDetail)
                                 @SortHeader("InterestRate",  "Rate",        detailSort, detailDesc, SortDetail, numeric: true)
                                 @SortHeader("BuyPrice",      "Buy",         detailSort, detailDesc, SortDetail, numeric: true)
                                 @SortHeader("SellPrice",     "Sell",        detailSort, detailDesc, SortDetail, numeric: true)
                                 @SortHeader("MarginBps",     "Margin (bps)",detailSort, detailDesc, SortDetail, numeric: true)
-                                @SortHeader("Concessions",   "Concessions", detailSort, detailDesc, SortDetail, numeric: true)
                                 @SortHeader("LoanAmount",    "Amount",      detailSort, detailDesc, SortDetail, numeric: true)
                             </tr>
                         </thead>
@@ -100,13 +105,11 @@ else
                                     <td>@r.LoName</td>
                                     <td>@r.Channel</td>
                                     <td>@r.CommitmentType</td>
-                                    <td>@(r.WholeLoan ? "✓" : "")</td>
                                     <td>@CapturedGlyph(r.Captured)</td>
                                     <td class="num">@(r.InterestRate?.ToString("F3") ?? "")</td>
                                     <td class="num">@(r.BuyPrice?.ToString("F3") ?? "")</td>
                                     <td class="num">@(r.SellPrice?.ToString("F3") ?? "")</td>
                                     <td class="num">@(r.MarginBps?.ToString("F1") ?? "")</td>
-                                    <td class="num">@FmtMoneyOrBlank(r.Concessions)</td>
                                     <td class="num">@FmtMoneyOrBlank(r.LoanAmount)</td>
                                 </tr>
                             }
@@ -131,8 +134,7 @@ else
                                 @SortHeader("Volume",          "Volume",             loSort, loDesc, SortLo, numeric: true)
                                 @SortHeader("AvgRate",         "Avg Rate",           loSort, loDesc, SortLo, numeric: true)
                                 @SortHeader("AvgMarginBps",    "Avg Margin (bps)",   loSort, loDesc, SortLo, numeric: true)
-                                @SortHeader("AvgConcessions",  "Avg Concessions",    loSort, loDesc, SortLo, numeric: true)
-                                @SortHeader("CaptureRatePct",  "Capture %",          loSort, loDesc, SortLo, numeric: true)
+                                @SortHeader("CaptureRatePct",  "Captured %",         loSort, loDesc, SortLo, numeric: true)
                                 @SortHeader("CapturedUnits",   "Captured",           loSort, loDesc, SortLo, numeric: true)
                                 @SortHeader("NonCapturedUnits","Not Captured",       loSort, loDesc, SortLo, numeric: true)
                             </tr>
@@ -146,7 +148,6 @@ else
                                     <td class="num">@FmtMoney(r.Volume)</td>
                                     <td class="num">@(r.AvgRate?.ToString("F3") ?? "") %</td>
                                     <td class="num">@(r.AvgMarginBps?.ToString("F1") ?? "")</td>
-                                    <td class="num">@FmtMoney(r.AvgConcessions)</td>
                                     <td class="num">@r.CaptureRatePct.ToString("F1") %</td>
                                     <td class="num">@r.CapturedUnits</td>
                                     <td class="num">@r.NonCapturedUnits</td>
@@ -205,7 +206,6 @@ else
                             <select @bind="vsMetric">
                                 <option value="margin">Avg Margin (bps)</option>
                                 <option value="rate">Avg Rate</option>
-                                <option value="concessions">Avg Concessions</option>
                             </select>
                         </span>
                     </h3>
@@ -216,42 +216,6 @@ else
                                          YValue="@(e => (decimal)(e.Value ?? 0))" />
                     </ApexChart>
                     <p class="muted">Reference line: company avg = @CompanyAvgLabel</p>
-                </div>
-            }
-        }
-        else if (tab == "conc")
-        {
-            @if (loSummary is null) { <p class="empty">Loading...</p> }
-            else if (loSummary.Count == 0) { <p class="empty">No LO data for this period.</p> }
-            else
-            {
-                <div class="card">
-                    <h3>Concession Analysis <span class="muted">avg concessions per loan</span></h3>
-                    <ApexChart TItem="LoPricingSummary" Options="_concOptions" Height="380">
-                        <ApexPointSeries TItem="LoPricingSummary" Items="ConcessionRanked" Name="Avg Concessions"
-                                         SeriesType="SeriesType.Bar"
-                                         XValue="@(e => e.LoName)"
-                                         YValue="@(e => e.AvgConcessions)" />
-                    </ApexChart>
-                    <table class="data-table">
-                        <thead>
-                            <tr><th>Rank</th><th>LO</th><th class="num">Units</th><th class="num">Avg Concessions</th><th class="num">Total Concessions (est)</th></tr>
-                        </thead>
-                        <tbody>
-                            @{ var rank = 1; }
-                            @foreach (var r in ConcessionRanked)
-                            {
-                                <tr>
-                                    <td>@rank</td>
-                                    <td>@r.LoName</td>
-                                    <td class="num">@r.Units</td>
-                                    <td class="num">@FmtMoney(r.AvgConcessions)</td>
-                                    <td class="num">@FmtMoney(r.AvgConcessions * r.Units)</td>
-                                </tr>
-                                rank++;
-                            }
-                        </tbody>
-                    </table>
                 </div>
             }
         }
@@ -267,6 +231,7 @@ else
     private DateTime startDate = new(DateTime.Today.Year, 1, 1);
     private DateTime endDate = DateTime.Today.AddDays(1);
     private string captureFilter = "";
+    private string channelFilter = "";
     private List<int> selectedLoIds = new();
 
     private IReadOnlyList<LoOption> loOptions = Array.Empty<LoOption>();
@@ -294,13 +259,6 @@ else
     {
         Chart = new Chart { Toolbar = new Toolbar { Show = false } },
         Colors = new List<string> { "#0B426A" },
-        DataLabels = new DataLabels { Enabled = true },
-    };
-
-    private readonly ApexChartOptions<LoPricingSummary> _concOptions = new()
-    {
-        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
-        Colors = new List<string> { "#dc2626" },
         DataLabels = new DataLabels { Enabled = true },
     };
 
@@ -339,7 +297,8 @@ else
         Start: startDate,
         End: endDate,
         NmlsIds: selectedLoIds.Count == 0 ? null : selectedLoIds,
-        CaptureFilter: string.IsNullOrEmpty(captureFilter) ? null : captureFilter);
+        CaptureFilter: string.IsNullOrEmpty(captureFilter) ? null : captureFilter,
+        Channel: string.IsNullOrEmpty(channelFilter) ? null : channelFilter);
 
     private async Task SelectTab(string next)
     {
@@ -356,7 +315,6 @@ else
             case "lo"     when loSummary is null: loSummary = await Svc.GetLoSummaryAsync(f); break;
             case "trend"  when trend is null:     trend = await Svc.GetTrendAsync(f); break;
             case "vs"     when loSummary is null: loSummary = await Svc.GetLoSummaryAsync(f); break;
-            case "conc"   when loSummary is null: loSummary = await Svc.GetLoSummaryAsync(f); break;
         }
     }
 
@@ -376,7 +334,6 @@ else
         ["BuyPrice"]       = x => x.BuyPrice,
         ["SellPrice"]      = x => x.SellPrice,
         ["MarginBps"]      = x => x.MarginBps,
-        ["Concessions"]    = x => x.Concessions,
         ["LoanAmount"]     = x => x.LoanAmount,
     };
 
@@ -387,7 +344,6 @@ else
         ["Volume"]           = x => x.Volume,
         ["AvgRate"]          = x => x.AvgRate,
         ["AvgMarginBps"]     = x => x.AvgMarginBps,
-        ["AvgConcessions"]   = x => x.AvgConcessions,
         ["CaptureRatePct"]   = x => x.CaptureRatePct,
         ["CapturedUnits"]    = x => x.CapturedUnits,
         ["NonCapturedUnits"] = x => x.NonCapturedUnits,
@@ -494,16 +450,14 @@ else
 
     private double? VsValue(LoPricingSummary s) => vsMetric switch
     {
-        "rate"        => s.AvgRate,
-        "concessions" => (double?)s.AvgConcessions,
-        _             => s.AvgMarginBps,
+        "rate" => s.AvgRate,
+        _      => s.AvgMarginBps,
     };
 
     private string VsMetricLabel => vsMetric switch
     {
         "rate" => "Avg Rate (%)",
-        "concessions" => "Avg Concessions ($)",
-        _ => "Avg Margin (bps)",
+        _      => "Avg Margin (bps)",
     };
 
     private string CompanyAvgLabel
@@ -513,19 +467,11 @@ else
             if (kpis is null) return "—";
             return vsMetric switch
             {
-                "rate"        => $"{kpis.AvgRate:F3}%",
-                "concessions" => FmtMoney(kpis.AvgConcessions),
-                _             => $"{kpis.AvgMarginBps:F1} bps",
+                "rate" => $"{kpis.AvgRate:F3}%",
+                _      => $"{kpis.AvgMarginBps:F1} bps",
             };
         }
     }
-
-    // ─── Concession analysis ─────────────────────────────────────────────────
-
-    private IEnumerable<LoPricingSummary> ConcessionRanked =>
-        loSummary is null
-            ? Enumerable.Empty<LoPricingSummary>()
-            : loSummary.OrderByDescending(s => s.AvgConcessions);
 
     // ─── Formatting ──────────────────────────────────────────────────────────
 
