@@ -20,6 +20,7 @@ public record PricingKpis(
     decimal Volume,
     double AvgMarginBps,
     double AvgRate,
+    decimal? AvgBuyPrice,
     decimal AvgConcessions,
     double CaptureRatePct);
 
@@ -45,6 +46,7 @@ public record LoPricingSummary(
     decimal Volume,
     double? AvgRate,
     double? AvgMarginBps,
+    decimal? AvgBuyPrice,
     decimal AvgConcessions,
     double CaptureRatePct,
     int CapturedUnits,
@@ -56,6 +58,7 @@ public record PricingTrendPoint(
     int Units,
     decimal Volume,
     double? AvgMarginBps,
-    double? AvgRate);
+    double? AvgRate,
+    decimal? AvgBuyPrice);
 
 public record LoOption(int NmlsId, string DisplayName);

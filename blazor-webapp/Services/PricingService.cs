@@ -85,6 +85,7 @@ SELECT
     ISNULL(SUM(g.loanamount), 0) AS volume,
     AVG(CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT)) AS avg_margin_bps,
     AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate,
+    AVG(CAST({NetBuyExpr} AS DECIMAL(19, 4))) AS avg_buy_price,
     AVG(CAST(ISNULL(g.cure_amount, 0) + ISNULL(g.lender_credits, 0) AS DECIMAL(19, 2))) AS avg_concessions,
     100.0 * SUM(CASE WHEN g.companylead = 'Yes' THEN 1 ELSE 0 END) /
         NULLIF(SUM(CASE WHEN g.companylead IN ('Yes','No') THEN 1 ELSE 0 END), 0) AS capture_rate_pct
@@ -103,6 +104,7 @@ FROM dbo.EncompassLoan_Gold g
             Volume: ToDec(r["volume"]),
             AvgMarginBps: ToDouble(r["avg_margin_bps"]) ?? 0,
             AvgRate: ToDouble(r["avg_rate"]) ?? 0,
+            AvgBuyPrice: r["avg_buy_price"] as decimal?,
             AvgConcessions: ToDec(r["avg_concessions"]),
             CaptureRatePct: ToDouble(r["capture_rate_pct"]) ?? 0);
     }
@@ -163,6 +165,7 @@ SELECT
     ISNULL(SUM(g.loanamount), 0) AS volume,
     AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate,
     AVG(CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT)) AS avg_margin_bps,
+    AVG(CAST({NetBuyExpr} AS DECIMAL(19, 4))) AS avg_buy_price,
     AVG(CAST(ISNULL(g.cure_amount, 0) + ISNULL(g.lender_credits, 0) AS DECIMAL(19, 2))) AS avg_concessions,
     100.0 * SUM(CASE WHEN g.companylead = 'Yes' THEN 1 ELSE 0 END) /
         NULLIF(SUM(CASE WHEN g.companylead IN ('Yes','No') THEN 1 ELSE 0 END), 0) AS capture_rate_pct,
@@ -172,7 +175,7 @@ FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
 {WhereCore}
 GROUP BY COALESCE(lo.lo_name, g.loanofficer_name, '(Unassigned)')
-ORDER BY avg_margin_bps DESC";
+ORDER BY avg_buy_price DESC";
 
     public Task<IReadOnlyList<LoPricingSummary>> GetLoSummaryAsync(PricingFilter f) =>
         Cached($"pricing:lo-summary:{f.Key()}", () => FetchLoSummaryAsync(f));
@@ -185,6 +188,7 @@ ORDER BY avg_margin_bps DESC";
                 Volume: ToDec(r["volume"]),
                 AvgRate: ToDouble(r["avg_rate"]),
                 AvgMarginBps: ToDouble(r["avg_margin_bps"]),
+                AvgBuyPrice: r["avg_buy_price"] as decimal?,
                 AvgConcessions: ToDec(r["avg_concessions"]),
                 CaptureRatePct: ToDouble(r["capture_rate_pct"]) ?? 0,
                 CapturedUnits: ToInt(r["captured_units"]),
@@ -200,7 +204,8 @@ SELECT
     COUNT(*) AS units,
     ISNULL(SUM(g.loanamount), 0) AS volume,
     AVG(CAST((g.sellside_totalsellprice - {NetBuyExpr}) * 100 AS FLOAT)) AS avg_margin_bps,
-    AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate
+    AVG(CAST(g.interest_rate AS FLOAT)) AS avg_rate,
+    AVG(CAST({NetBuyExpr} AS DECIMAL(19, 4))) AS avg_buy_price
 FROM dbo.EncompassLoan_Gold g
 LEFT JOIN dbo.DIM_LoanOfficer lo ON g.loanofficer_nmlsid = lo.nmls_id
 {WhereCore}
@@ -223,7 +228,8 @@ ORDER BY month_start, lo";
             Units: ToInt(r["units"]),
             Volume: ToDec(r["volume"]),
             AvgMarginBps: ToDouble(r["avg_margin_bps"]),
-            AvgRate: ToDouble(r["avg_rate"]))).ToList();
+            AvgRate: ToDouble(r["avg_rate"]),
+            AvgBuyPrice: r["avg_buy_price"] as decimal?)).ToList();
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
