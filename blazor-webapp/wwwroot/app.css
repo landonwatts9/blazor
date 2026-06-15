@@ -49,3 +49,23 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Print rules — used by the scheduled Edge --print-to-pdf capture so a
+   dashboard renders as one tall page instead of paginating mid-table.
+   Tune the @page size if your tables grow beyond ~40 rows. */
+@media print {
+    @page {
+        size: 13in 28in;
+        margin: 0.35in;
+    }
+
+    /* Strip non-data chrome that wastes vertical space in print. */
+    .sam-header,
+    #blazor-error-ui,
+    .btn-apply {
+        display: none !important;
+    }
+
+    .sam-main { padding: 0 !important; }
+    html, body { background: #fff !important; }
+}
