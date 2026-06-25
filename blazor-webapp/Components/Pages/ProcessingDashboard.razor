@@ -369,9 +369,9 @@ else
         builder.CloseElement();
     };
 
-    private static string FmtDate(DateTime? d) => d?.ToString("yyyy-MM-dd") ?? "";
+    private static string FmtDate(DateTime? d) => d?.ToString("MM/dd/yyyy") ?? "";
     private static string FmtDateTime(DateTime? d) =>
         d is null ? "" : d.Value.TimeOfDay == TimeSpan.Zero
-            ? d.Value.ToString("yyyy-MM-dd")
-            : d.Value.ToString("yyyy-MM-dd HH:mm");
+            ? d.Value.ToString("MM/dd/yyyy")
+            : d.Value.ToString("MM/dd/yyyy h:mm tt");
 }
