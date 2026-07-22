@@ -130,7 +130,7 @@ if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
 Import-Module PnP.PowerShell
 
 try {
-    Write-Host "Connecting to $SharePointSiteUrl ($AuthMode auth)..."
+    Write-Host ("Connecting to {0} ({1} auth)..." -f $SharePointSiteUrl, $AuthMode)
     switch ($AuthMode) {
         "Interactive" {
             # Opens a browser; caches a token for repeat runs in the same
