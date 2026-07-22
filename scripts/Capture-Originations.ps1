@@ -1,46 +1,82 @@
 # -----------------------------------------------------------------------------
 # Capture-Originations.ps1
 #
-# Runs headless Microsoft Edge against the /originations/print view of the
-# dashboard, saves a single-page PDF, and drops it in $OutDir with a
-# timestamped filename.
+# Renders /originations/print via headless Microsoft Edge, saves the resulting
+# PDF locally, and uploads it to a SharePoint document library. A Power
+# Automate flow watching that library sends the report via email once the
+# file lands.
 #
 # Runs the report as of "now" by default — the print view auto-selects the
 # current year, month, and Saturday-ending week when no filters are supplied.
-# Pass -WeekEndingOverride 'yyyy-MM-dd' to pin an arbitrary week (useful for
-# regenerating a prior period), or use the -Year / -Month switches for a
-# different reporting month.
+# Pass -Year / -Month / -WeekEndingOverride to pin a specific reporting
+# period (useful for regenerating a prior week).
+#
+# Filenames use the same UTC ISO convention as existing files in the target
+# folder (Weekly_Originations-yyyy-MM-ddTHH_mm_ssZ.pdf) so the Power Automate
+# flow's naming rules keep working.
 #
 # Prerequisites on the server:
 #   * The account running this script must have a row in
 #     dbo.DashboardAccess for the 'originations' key.
-#   * Microsoft Edge must be installed at the path in $EdgeExe below;
-#     override with -EdgeExe if it lives elsewhere.
-#   * Redeploy the Blazor app before first use so /originations/print is live.
+#   * Microsoft Edge must be installed at the path in $EdgeExe below.
+#   * PnP.PowerShell module must be installed for SharePoint upload:
+#         Install-Module PnP.PowerShell -Scope AllUsers -Force
+#   * For scheduled (headless) runs, an Azure AD app registration with
+#     Sites.Selected or Sites.ReadWrite.All permission on the target site,
+#     plus a certificate installed on the server. See -AuthMode below.
 #
-# Usage (interactive test):
+# Usage — interactive test (opens a browser for SharePoint sign-in):
 #   powershell -ExecutionPolicy Bypass -File .\Capture-Originations.ps1
 #
-# Usage (Task Scheduler action):
-#   Program:   powershell.exe
-#   Arguments: -ExecutionPolicy Bypass -File "C:\Reports\Capture-Originations.ps1"
+# Usage — scheduled run (headless with certificate auth):
+#   powershell -ExecutionPolicy Bypass -File .\Capture-Originations.ps1 `
+#       -AuthMode Certificate `
+#       -ClientId  "<app-registration-client-id>" `
+#       -TenantId  "sunamericanmortgage.onmicrosoft.com" `
+#       -CertThumbprint "<cert-thumbprint-from-cert-store>"
+#
+# Usage — local only, skip SharePoint upload entirely:
+#   powershell -ExecutionPolicy Bypass -File .\Capture-Originations.ps1 -AuthMode None
 # -----------------------------------------------------------------------------
 
 [CmdletBinding()]
 param(
+    # ─── PDF generation ──────────────────────────────────────────────────────
     [string] $Url                = "http://dashboard/originations/print",
-    [string] $OutDir             = "C:\Reports\Originations",
+    [string] $LocalDir           = "C:\Reports\Originations",
     [int]    $WaitMs             = 10000,
     [string] $EdgeExe            = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     [Nullable[int]]    $Year     = $null,
     [Nullable[int]]    $Month    = $null,
-    [string] $WeekEndingOverride = $null
+    [string] $WeekEndingOverride = $null,
+
+    # ─── SharePoint upload target ────────────────────────────────────────────
+    [string] $SharePointSiteUrl  = "https://sunamericanmortgage.sharepoint.com/sites/Accounting",
+    [string] $SharePointFolder   = "Shared Documents/dashboard_exports/originations_marketing",
+
+    # ─── Auth mode ───────────────────────────────────────────────────────────
+    # Interactive:  opens a browser for OAuth. For manual testing only —
+    #               will fail inside a scheduled task with no user session.
+    # Certificate:  fully headless; requires -ClientId, -TenantId, and either
+    #               -CertThumbprint (cert already installed to CurrentUser or
+    #               LocalMachine cert store) or -CertPath (PFX file on disk).
+    # None:         skip the upload entirely; PDF is left in $LocalDir only.
+    [ValidateSet("Interactive", "Certificate", "None")]
+    [string] $AuthMode           = "Interactive",
+    [string] $ClientId           = "",
+    [string] $TenantId           = "",
+    [string] $CertThumbprint     = "",
+    [string] $CertPath           = "",
+    [string] $CertPassword       = "",
+
+    # If set, the local PDF copy is preserved after upload. Off by default so
+    # the local folder doesn't grow forever.
+    [switch] $KeepLocalCopy
 )
 
 $ErrorActionPreference = "Stop"
 
-# Build the URL with any explicit overrides. Empty overrides let the
-# print page pick "current" values on its own.
+# ─── Build the URL (optional filter overrides) ───────────────────────────────
 $query = @()
 if ($Year)                { $query += "year=$Year" }
 if ($Month)               { $query += "month=$Month" }
@@ -49,23 +85,22 @@ if ($query.Count -gt 0) {
     $Url = $Url + "?" + ($query -join "&")
 }
 
-# Timestamped filename encodes the moment of capture, not the report period,
-# so re-running the same job at different times never overwrites a prior PDF.
-$timestamp = Get-Date -Format "yyyy-MM-dd_HHmm"
-$pdfPath   = Join-Path $OutDir "Originations_$timestamp.pdf"
-New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+# ─── Generate the PDF ────────────────────────────────────────────────────────
+# UTC ISO timestamp with underscores in place of colons (colons aren't
+# valid in Windows filenames). Matches the existing "Weekly_Originations-"
+# naming convention already used in the target SharePoint folder.
+$utcStamp   = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH_mm_ss") + "Z"
+$fileName   = "Weekly_Originations-$utcStamp.pdf"
+$pdfPath    = Join-Path $LocalDir $fileName
+New-Item -ItemType Directory -Path $LocalDir -Force | Out-Null
 
 if (-not (Test-Path $EdgeExe)) {
     throw "Microsoft Edge not found at '$EdgeExe'. Pass -EdgeExe with the correct path."
 }
 
 Write-Host "Capturing: $Url"
-Write-Host "Saving to: $pdfPath"
+Write-Host "Local out: $pdfPath"
 
-# --auth-server-allowlist tells Edge to silently send NTLM credentials
-# to the dashboard host so the run account signs in without a prompt.
-# --virtual-time-budget gives Blazor's SignalR circuit + the async data
-# fetch enough time to complete before Edge takes the print snapshot.
 & $EdgeExe `
     --headless=new `
     --disable-gpu `
@@ -77,9 +112,59 @@ Write-Host "Saving to: $pdfPath"
     --print-to-pdf="$pdfPath" `
     $Url
 
-if (Test-Path $pdfPath -PathType Leaf) {
-    $sizeKb = [math]::Round((Get-Item $pdfPath).Length / 1KB, 1)
-    Write-Host "OK: $pdfPath ($sizeKb KB)"
-} else {
-    throw "PDF was not created. Check that Edge is installed, the URL is reachable, and the account has 'originations' access."
+if (-not (Test-Path $pdfPath -PathType Leaf)) {
+    throw "PDF was not created. Check that Edge is installed, /originations/print is reachable, and the run account has 'originations' access."
+}
+$sizeKb = [math]::Round((Get-Item $pdfPath).Length / 1KB, 1)
+Write-Host "PDF ready ($sizeKb KB)."
+
+# ─── SharePoint upload ───────────────────────────────────────────────────────
+if ($AuthMode -eq "None") {
+    Write-Host "AuthMode=None — skipping SharePoint upload; PDF stays at $pdfPath."
+    exit 0
+}
+
+if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
+    throw "PnP.PowerShell module not installed. Run: Install-Module PnP.PowerShell -Scope AllUsers -Force"
+}
+Import-Module PnP.PowerShell
+
+try {
+    Write-Host "Connecting to $SharePointSiteUrl ($AuthMode auth)..."
+    switch ($AuthMode) {
+        "Interactive" {
+            # Opens a browser; caches a token for repeat runs in the same
+            # user session. Not viable for a scheduled task with no UI.
+            Connect-PnPOnline -Url $SharePointSiteUrl -Interactive -ErrorAction Stop
+        }
+        "Certificate" {
+            if (-not $ClientId -or -not $TenantId) {
+                throw "Certificate auth requires -ClientId and -TenantId."
+            }
+            if ($CertThumbprint) {
+                Connect-PnPOnline -Url $SharePointSiteUrl `
+                    -ClientId $ClientId -Tenant $TenantId `
+                    -Thumbprint $CertThumbprint -ErrorAction Stop
+            } elseif ($CertPath) {
+                $secure = if ($CertPassword) { ConvertTo-SecureString $CertPassword -AsPlainText -Force } else { $null }
+                Connect-PnPOnline -Url $SharePointSiteUrl `
+                    -ClientId $ClientId -Tenant $TenantId `
+                    -CertificatePath $CertPath -CertificatePassword $secure -ErrorAction Stop
+            } else {
+                throw "Certificate auth requires either -CertThumbprint or -CertPath."
+            }
+        }
+    }
+
+    Write-Host "Uploading to $SharePointFolder..."
+    Add-PnPFile -Path $pdfPath -Folder $SharePointFolder -ErrorAction Stop | Out-Null
+    Write-Host "OK: uploaded $fileName"
+} finally {
+    try { Disconnect-PnPOnline -ErrorAction SilentlyContinue } catch {}
+}
+
+# ─── Cleanup ─────────────────────────────────────────────────────────────────
+if (-not $KeepLocalCopy) {
+    Remove-Item $pdfPath -Force
+    Write-Host "Removed local copy."
 }
