@@ -1,0 +1,9 @@
+@inherits LayoutComponentBase
+
+@* Bare layout for print-oriented views: no site header, no nav, no
+   in-app chrome. Just the page body so headless captures produce
+   clean single-purpose documents. *@
+
+<div class="print-shell">
+    @Body
+</div>

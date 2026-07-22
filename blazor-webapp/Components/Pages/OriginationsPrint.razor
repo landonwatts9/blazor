@@ -1,0 +1,186 @@
+@page "/originations/print"
+@layout SamReporting.Components.Layout.PrintLayout
+@rendermode InteractiveServer
+@using SamReporting.Models
+@using SamReporting.Services
+@inject OriginationsService Svc
+@inject AccessService Access
+
+<PageTitle>Originations Report</PageTitle>
+
+<HeadContent>
+    <style>
+        @@page {
+            size: 11in 14in;
+            margin: 0.45in 0.5in;
+        }
+        @@media print {
+            html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+        }
+    </style>
+</HeadContent>
+
+@if (accessChecked && !authorized)
+{
+    <NoAccessMessage />
+}
+else if (landing is null)
+{
+    <p class="loading">Preparing report…</p>
+}
+else
+{
+    <article class="print-doc">
+        <header class="doc-head">
+            <div class="brand">
+                <div class="brand-title">Sun American Mortgage</div>
+                <div class="brand-sub">Originations Report</div>
+            </div>
+            <div class="doc-meta">
+                <div class="meta-row"><span class="meta-label">Period</span><span class="meta-value">@MonthLabel</span></div>
+                <div class="meta-row"><span class="meta-label">Current Week</span><span class="meta-value">@WeekRangeLabel</span></div>
+                <div class="meta-row"><span class="meta-label">Generated</span><span class="meta-value">@GeneratedLabel</span></div>
+            </div>
+        </header>
+
+        <section class="kpi-strip">
+            <div class="kpi">
+                <div class="kpi-label">Current-Week Units</div>
+                <div class="kpi-value">@landing.Kpis.CwUnits.ToString("N0")</div>
+                <div class="kpi-sub">@WeekRangeLabel</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Current-Week Volume</div>
+                <div class="kpi-value">@FmtMoneyShort(landing.Kpis.CwVolume)</div>
+                <div class="kpi-sub">@WeekRangeLabel</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Month-to-Date Units</div>
+                <div class="kpi-value">@landing.Kpis.MtdUnits.ToString("N0")</div>
+                <div class="kpi-sub">@MonthLabel</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Month-to-Date Volume</div>
+                <div class="kpi-value">@FmtMoneyShort(landing.Kpis.MtdVolume)</div>
+                <div class="kpi-sub">@MonthLabel</div>
+            </div>
+        </section>
+
+        <section class="lo-section">
+            <h2 class="section-title">LO Production</h2>
+            <table class="lo-table">
+                <thead>
+                    <tr>
+                        <th>Loan Officer</th>
+                        <th class="num">CW Units</th>
+                        <th class="num">CW $</th>
+                        <th class="num">MTD Units</th>
+                        <th class="num">MTD $</th>
+                        <th class="num">YTD Units</th>
+                        <th class="num">YTD $</th>
+                        <th class="num">MTD Fnd</th>
+                        <th class="num">MTD Fnd $</th>
+                        <th class="num">YTD Fnd</th>
+                        <th class="num">YTD Fnd $</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in SortedRows)
+                    {
+                        <tr>
+                            <td>@r.LoanOfficer</td>
+                            <td class="num">@CellInt(r.CwUnits)</td>
+                            <td class="num">@CellMoney(r.CwDollars)</td>
+                            <td class="num">@CellInt(r.MtdUnits)</td>
+                            <td class="num">@CellMoney(r.MtdDollars)</td>
+                            <td class="num">@CellInt(r.YtdUnits)</td>
+                            <td class="num">@CellMoney(r.YtdDollars)</td>
+                            <td class="num">@CellInt(r.MtdFundedUnits)</td>
+                            <td class="num">@CellMoney(r.MtdFundedDollars)</td>
+                            <td class="num">@CellInt(r.YtdFundedUnits)</td>
+                            <td class="num">@CellMoney(r.YtdFundedDollars)</td>
+                        </tr>
+                    }
+                    <tr class="totals-row">
+                        <td>Company Total</td>
+                        <td class="num">@landing.Rows.Sum(x => x.CwUnits).ToString("N0")</td>
+                        <td class="num">@FmtMoney(landing.Rows.Sum(x => x.CwDollars))</td>
+                        <td class="num">@landing.Rows.Sum(x => x.MtdUnits).ToString("N0")</td>
+                        <td class="num">@FmtMoney(landing.Rows.Sum(x => x.MtdDollars))</td>
+                        <td class="num">@landing.Rows.Sum(x => x.YtdUnits).ToString("N0")</td>
+                        <td class="num">@FmtMoney(landing.Rows.Sum(x => x.YtdDollars))</td>
+                        <td class="num">@landing.Rows.Sum(x => x.MtdFundedUnits).ToString("N0")</td>
+                        <td class="num">@FmtMoney(landing.Rows.Sum(x => x.MtdFundedDollars))</td>
+                        <td class="num">@landing.Rows.Sum(x => x.YtdFundedUnits).ToString("N0")</td>
+                        <td class="num">@FmtMoney(landing.Rows.Sum(x => x.YtdFundedDollars))</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <footer class="doc-foot">
+            <span>Sun American Mortgage · Internal · Confidential</span>
+            <span>@GeneratedLabel</span>
+        </footer>
+    </article>
+}
+
+@code {
+    [SupplyParameterFromQuery] public int? Year { get; set; }
+    [SupplyParameterFromQuery] public int? Month { get; set; }
+    [SupplyParameterFromQuery] public string? WeekEnding { get; set; }
+
+    private bool accessChecked;
+    private bool authorized;
+    private OriginationsLanding? landing;
+
+    private int year;
+    private int month;
+    private DateTime weekEndingDate;
+    private DateTime generatedAt = DateTime.Now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await Access.CurrentUsernameAsync();
+        authorized = await Access.CanAccessAsync(user, "originations");
+        accessChecked = true;
+        if (!authorized) return;
+
+        var today = DateTime.Today;
+        year  = Year  ?? today.Year;
+        month = Month ?? today.Month;
+
+        weekEndingDate = TryParseWeekEnding(WeekEnding)
+                         ?? today.AddDays(6 - (int)today.DayOfWeek);
+
+        landing = await Svc.GetLandingAsync(year, month, weekEndingDate);
+    }
+
+    private static DateTime? TryParseWeekEnding(string? s) =>
+        !string.IsNullOrWhiteSpace(s) && DateTime.TryParse(s, out var d) ? d.Date : null;
+
+    private IEnumerable<LoProductionRow> SortedRows =>
+        landing is null
+            ? Enumerable.Empty<LoProductionRow>()
+            : landing.Rows.OrderByDescending(r => r.YtdDollars);
+
+    private string MonthLabel => new DateTime(year, month, 1).ToString("MMMM yyyy");
+    private string WeekRangeLabel
+    {
+        get
+        {
+            var end = weekEndingDate.Date;
+            var start = end.AddDays(-6);
+            return $"{start:MM/dd/yyyy} – {end:MM/dd/yyyy}";
+        }
+    }
+    private string GeneratedLabel => generatedAt.ToString("MM/dd/yyyy h:mm tt");
+
+    private static string FmtMoney(decimal v) => v == 0m ? "—" : $"${v:N0}";
+    private static string FmtMoneyShort(decimal v) =>
+        Math.Abs(v) >= 1_000_000m ? $"${v / 1_000_000m:F1}M"
+        : Math.Abs(v) >= 1_000m   ? $"${v / 1_000m:F0}K"
+        : $"${v:N0}";
+    private static string CellInt(int n) => n == 0 ? "—" : n.ToString("N0");
+    private static string CellMoney(decimal v) => v == 0m ? "—" : $"${v:N0}";
+}

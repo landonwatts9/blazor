@@ -1,0 +1,209 @@
+/* Print-oriented styles for /originations/print. The @page rule is set
+   inline via <HeadContent> in the razor file so it survives Blazor CSS
+   isolation and the headless PDF pipeline. */
+
+.print-doc {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    max-width: 100%;
+    line-height: 1.35;
+}
+
+/* ─── Document header (title block + metadata) ───────────────────────── */
+
+.doc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    border-bottom: 3px solid #0B426A;
+}
+
+.brand-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0B426A;
+    letter-spacing: 0.2px;
+}
+
+.brand-sub {
+    font-size: 14px;
+    font-weight: 500;
+    color: #475569;
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+}
+
+.doc-meta {
+    text-align: right;
+    font-size: 11px;
+    color: #475569;
+    min-width: 240px;
+}
+
+.meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 1.5px 0;
+}
+
+.meta-label {
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 10px;
+}
+
+.meta-value {
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 11.5px;
+}
+
+/* ─── KPI strip ──────────────────────────────────────────────────────── */
+
+.kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.kpi {
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #0B86AF;
+    border-radius: 4px;
+    padding: 10px 12px 12px 12px;
+    background: #f8fafc;
+    page-break-inside: avoid;
+}
+
+.kpi:nth-child(1) { border-left-color: #0B426A; }
+.kpi:nth-child(2) { border-left-color: #14b8a6; }
+.kpi:nth-child(3) { border-left-color: #f59e0b; }
+.kpi:nth-child(4) { border-left-color: #16a34a; }
+
+.kpi-label {
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 4px;
+    line-height: 1.1;
+}
+
+.kpi-sub {
+    font-size: 10.5px;
+    color: #94a3b8;
+    margin-top: 3px;
+}
+
+/* ─── LO Production table ────────────────────────────────────────────── */
+
+.lo-section {
+    page-break-inside: avoid;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #0B426A;
+    margin: 0 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.lo-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+    table-layout: auto;
+}
+
+.lo-table thead th {
+    background: #0B426A;
+    color: #fff;
+    text-align: left;
+    padding: 6px 8px;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 2px solid #062E4C;
+}
+
+.lo-table thead th.num {
+    text-align: right;
+}
+
+.lo-table tbody td {
+    padding: 4.5px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #1e293b;
+}
+
+.lo-table tbody td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.lo-table tbody tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+.totals-row td {
+    background: #eef2f7 !important;
+    font-weight: 700;
+    color: #0B426A;
+    border-top: 2px solid #0B426A;
+    border-bottom: none;
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────── */
+
+.doc-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    padding-top: 10px;
+    border-top: 1px solid #cbd5e1;
+    font-size: 10px;
+    color: #94a3b8;
+    letter-spacing: 0.3px;
+}
+
+.loading {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 40px 0;
+}
+
+/* ─── Print tweaks ───────────────────────────────────────────────────── */
+
+@media print {
+    .print-doc {
+        color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .kpi, .lo-table thead th, .lo-table tbody tr:nth-child(even) td, .totals-row td {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

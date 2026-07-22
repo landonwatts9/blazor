@@ -50,16 +50,11 @@ h1:focus {
     border-color: #929292;
 }
 
-/* Print rules — used by the scheduled Edge --print-to-pdf capture so a
-   dashboard renders as one tall page instead of paginating mid-table.
-   Tune the @page size if your tables grow beyond ~40 rows. */
+/* Global print utility rules. @page size is intentionally NOT set here —
+   dedicated print routes (e.g. /originations/print) define their own
+   paper dimensions via <HeadContent> inline styles. This block just
+   strips interactive chrome if anyone prints an interactive page. */
 @media print {
-    @page {
-        size: 13in 28in;
-        margin: 0.35in;
-    }
-
-    /* Strip non-data chrome that wastes vertical space in print. */
     .sam-header,
     #blazor-error-ui,
     .btn-apply {
