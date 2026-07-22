@@ -6,7 +6,7 @@
 # Automate flow watching that library sends the report via email once the
 # file lands.
 #
-# Runs the report as of "now" by default — the print view auto-selects the
+# Runs the report as of "now" by default: the print view auto-selects the
 # current year, month, and Saturday-ending week when no filters are supplied.
 # Pass -Year / -Month / -WeekEndingOverride to pin a specific reporting
 # period (useful for regenerating a prior week).
@@ -25,23 +25,23 @@
 #     Sites.Selected or Sites.ReadWrite.All permission on the target site,
 #     plus a certificate installed on the server. See -AuthMode below.
 #
-# Usage — interactive test (opens a browser for SharePoint sign-in):
+# Usage - interactive test (opens a browser for SharePoint sign-in):
 #   powershell -ExecutionPolicy Bypass -File .\Capture-Originations.ps1
 #
-# Usage — scheduled run (headless with certificate auth):
+# Usage - scheduled run (headless with certificate auth):
 #   powershell -ExecutionPolicy Bypass -File .\Capture-Originations.ps1 `
 #       -AuthMode Certificate `
 #       -ClientId  "<app-registration-client-id>" `
 #       -TenantId  "sunamericanmortgage.onmicrosoft.com" `
 #       -CertThumbprint "<cert-thumbprint-from-cert-store>"
 #
-# Usage — local only, skip SharePoint upload entirely:
+# Usage - local only, skip SharePoint upload entirely:
 #   powershell -ExecutionPolicy Bypass -File .\Capture-Originations.ps1 -AuthMode None
 # -----------------------------------------------------------------------------
 
 [CmdletBinding()]
 param(
-    # ─── PDF generation ──────────────────────────────────────────────────────
+    # --- PDF generation ------------------------------------------------------
     [string] $Url                = "http://dashboard/originations/print",
     [string] $LocalDir           = "C:\Reports\Originations",
     [int]    $WaitMs             = 10000,
@@ -50,12 +50,12 @@ param(
     [Nullable[int]]    $Month    = $null,
     [string] $WeekEndingOverride = $null,
 
-    # ─── SharePoint upload target ────────────────────────────────────────────
+    # --- SharePoint upload target --------------------------------------------
     [string] $SharePointSiteUrl  = "https://sunamericanmortgage.sharepoint.com/sites/Accounting",
     [string] $SharePointFolder   = "Shared Documents/dashboard_exports/originations_marketing",
 
-    # ─── Auth mode ───────────────────────────────────────────────────────────
-    # Interactive:  opens a browser for OAuth. For manual testing only —
+    # --- Auth mode -----------------------------------------------------------
+    # Interactive:  opens a browser for OAuth. For manual testing only;
     #               will fail inside a scheduled task with no user session.
     # Certificate:  fully headless; requires -ClientId, -TenantId, and either
     #               -CertThumbprint (cert already installed to CurrentUser or
@@ -70,13 +70,13 @@ param(
     [string] $CertPassword       = "",
 
     # If set, the local PDF copy is preserved after upload. Off by default so
-    # the local folder doesn't grow forever.
+    # the local folder does not grow forever.
     [switch] $KeepLocalCopy
 )
 
 $ErrorActionPreference = "Stop"
 
-# ─── Build the URL (optional filter overrides) ───────────────────────────────
+# --- Build the URL (optional filter overrides) -------------------------------
 $query = @()
 if ($Year)                { $query += "year=$Year" }
 if ($Month)               { $query += "month=$Month" }
@@ -85,8 +85,8 @@ if ($query.Count -gt 0) {
     $Url = $Url + "?" + ($query -join "&")
 }
 
-# ─── Generate the PDF ────────────────────────────────────────────────────────
-# UTC ISO timestamp with underscores in place of colons (colons aren't
+# --- Generate the PDF --------------------------------------------------------
+# UTC ISO timestamp with underscores in place of colons (colons are not
 # valid in Windows filenames). Matches the existing "Weekly_Originations-"
 # naming convention already used in the target SharePoint folder.
 $utcStamp   = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH_mm_ss") + "Z"
@@ -118,9 +118,9 @@ if (-not (Test-Path $pdfPath -PathType Leaf)) {
 $sizeKb = [math]::Round((Get-Item $pdfPath).Length / 1KB, 1)
 Write-Host "PDF ready ($sizeKb KB)."
 
-# ─── SharePoint upload ───────────────────────────────────────────────────────
+# --- SharePoint upload -------------------------------------------------------
 if ($AuthMode -eq "None") {
-    Write-Host "AuthMode=None — skipping SharePoint upload; PDF stays at $pdfPath."
+    Write-Host "AuthMode=None. Skipping SharePoint upload; PDF stays at $pdfPath."
     exit 0
 }
 
@@ -130,7 +130,7 @@ if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
 Import-Module PnP.PowerShell
 
 try {
-    Write-Host ("Connecting to {0} ({1} auth)..." -f $SharePointSiteUrl, $AuthMode)
+    Write-Host ("Connecting to {0} using {1} auth..." -f $SharePointSiteUrl, $AuthMode)
     switch ($AuthMode) {
         "Interactive" {
             # Opens a browser; caches a token for repeat runs in the same
@@ -163,7 +163,7 @@ try {
     try { Disconnect-PnPOnline -ErrorAction SilentlyContinue } catch {}
 }
 
-# ─── Cleanup ─────────────────────────────────────────────────────────────────
+# --- Cleanup -----------------------------------------------------------------
 if (-not $KeepLocalCopy) {
     Remove-Item $pdfPath -Force
     Write-Host "Removed local copy."
