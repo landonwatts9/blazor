@@ -101,16 +101,27 @@ if (-not (Test-Path $EdgeExe)) {
 Write-Host "Capturing: $Url"
 Write-Host "Local out: $pdfPath"
 
-& $EdgeExe `
-    --headless=new `
-    --disable-gpu `
-    --hide-scrollbars `
-    --no-sandbox `
-    --auth-server-allowlist="dashboard" `
-    --virtual-time-budget=$WaitMs `
-    --no-pdf-header-footer `
-    --print-to-pdf="$pdfPath" `
+# Edge headless on Windows Server spawns helper processes and the invoking
+# msedge.exe can exit before the PDF is fully written. Start-Process -Wait
+# blocks on the process tree, and the polling loop afterwards is a safety
+# net for the rare case where the file still hasn't flushed to disk.
+$edgeArgs = @(
+    '--headless=new',
+    '--disable-gpu',
+    '--hide-scrollbars',
+    '--no-sandbox',
+    '--auth-server-allowlist=dashboard',
+    "--virtual-time-budget=$WaitMs",
+    '--no-pdf-header-footer',
+    "--print-to-pdf=$pdfPath",
     $Url
+)
+Start-Process -FilePath $EdgeExe -ArgumentList $edgeArgs -Wait -NoNewWindow -ErrorAction Stop
+
+$deadline = (Get-Date).AddSeconds(15)
+while (-not (Test-Path $pdfPath -PathType Leaf) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 500
+}
 
 if (-not (Test-Path $pdfPath -PathType Leaf)) {
     throw "PDF was not created. Check that Edge is installed, /originations/print is reachable, and the run account has 'originations' access."
