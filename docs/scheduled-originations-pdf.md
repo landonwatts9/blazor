@@ -45,6 +45,7 @@ Power Automate flow → email to recipients
 | Print layout wrapper | [blazor-webapp/Components/Layout/PrintLayout.razor](../blazor-webapp/Components/Layout/PrintLayout.razor) |
 | Capture script (source of truth) | [scripts/Capture-Originations.ps1](../scripts/Capture-Originations.ps1) |
 | Capture script (runtime copy) | `C:\Reports\Capture-Originations.ps1` on DASHBOARD |
+| Redeploy helper | [scripts/Redeploy.ps1](../scripts/Redeploy.ps1) |
 | Scheduled task name | `Originations Weekly PDF` |
 | OneDrive-synced folder | `C:\Users\landon.watts\OneDrive - Sun American Mortgage Company\Accounting - originations_marketing\` |
 | SharePoint destination | [Accounting site / dashboard_exports / originations_marketing](https://sunamericanmortgage.sharepoint.com/sites/Accounting) |
@@ -129,38 +130,39 @@ pass filter overrides:
 & C:\Reports\Capture-Originations.ps1 -Year 2026 -Month 7 -WeekEndingOverride "2026-07-19"
 ```
 
-## Update the capture script after a code change
+## Deploy code changes
 
-Any change to `scripts/Capture-Originations.ps1` in the repo needs to be
-pulled onto DASHBOARD and copied to the runtime location:
-
-```powershell
-cd C:\inetpub\wwwroot\blazor
-git pull origin main
-Copy-Item "C:\inetpub\wwwroot\blazor\scripts\Capture-Originations.ps1" `
-          "C:\Reports\Capture-Originations.ps1" -Force
-```
-
-## Update the print view
-
-Any change to `OriginationsPrint.razor` or its scoped CSS needs a redeploy
-of the Blazor app (the standard app_offline.htm dance):
+Any change to the Blazor app OR to `scripts/Capture-Originations.ps1` — after
+the commit lands on `main` in GitHub — is picked up on DASHBOARD by running
+[Redeploy.ps1](../scripts/Redeploy.ps1) in an elevated PowerShell:
 
 ```powershell
-$publish = "C:\inetpub\wwwroot\blazor\blazor-webapp\bin\Release\net8.0\publish"
-
-cd C:\inetpub\wwwroot\blazor
-git pull origin main
-cd C:\inetpub\wwwroot\blazor\blazor-webapp
-
-New-Item "$publish\app_offline.htm" -ItemType File -Force | Out-Null
-Start-Sleep -Seconds 3
-dotnet publish
-Remove-Item "$publish\app_offline.htm" -Force
+& C:\inetpub\wwwroot\blazor\scripts\Redeploy.ps1
 ```
 
-Then verify by browsing to `http://dashboard/originations/print` — the change
-should be visible immediately.
+That single command does the whole sequence:
+
+1. `git pull origin main` (skip with `-SkipPull` if code is already in place)
+2. Drops `app_offline.htm` into the publish folder so IIS gracefully shuts
+   down the worker and releases DLL locks
+3. Runs `dotnet publish -c Release`
+4. Copies `scripts\Capture-Originations.ps1` into `C:\Reports\` (skip with
+   `-SkipCaptureScript`)
+5. Removes `app_offline.htm` so the site comes back up
+
+The whole sequence is wrapped in `try/finally` so the offline marker always
+gets removed even if publish fails — the site never gets stuck offline.
+
+Verify the deploy took:
+
+```powershell
+Invoke-WebRequest http://dashboard/ -UseBasicParsing | Select-Object StatusCode
+# Expect: 200
+
+# And for print-view changes specifically, browse to:
+#   http://dashboard/originations/print
+# The change should be visible immediately after a hard refresh (Ctrl+F5).
+```
 
 ## Prerequisites (installed once, listed for reference)
 
