@@ -43,7 +43,11 @@
 param(
     # --- PDF generation ------------------------------------------------------
     [string] $Url                = "http://dashboard/originations/print",
-    [string] $LocalDir           = "C:\Reports\Originations",
+    # Default output path is the OneDrive-synced SharePoint folder for the
+    # Accounting site. The PDF written here syncs up to SharePoint
+    # automatically, and Power Automate fires on the resulting new-file
+    # event to email the report.
+    [string] $LocalDir           = "C:\Users\landon.watts\OneDrive - Sun American Mortgage Company\Accounting - originations_marketing",
     [int]    $WaitMs             = 10000,
     [string] $EdgeExe            = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     [Nullable[int]]    $Year     = $null,
@@ -51,18 +55,24 @@ param(
     [string] $WeekEndingOverride = $null,
 
     # --- SharePoint upload target --------------------------------------------
+    # Only used when -AuthMode is Interactive or Certificate. With
+    # AuthMode=None (the default in this configuration), the PDF is written
+    # to $LocalDir above and OneDrive handles the SharePoint sync.
     [string] $SharePointSiteUrl  = "https://sunamericanmortgage.sharepoint.com/sites/Accounting",
     [string] $SharePointFolder   = "Shared Documents/dashboard_exports/originations_marketing",
 
     # --- Auth mode -----------------------------------------------------------
-    # Interactive:  opens a browser for OAuth. For manual testing only;
+    # None:         skip PnP upload entirely; PDF is left in $LocalDir and
+    #               OneDrive syncs it to SharePoint. This is the default and
+    #               matches the OneDrive-based deployment.
+    # Interactive:  opens a browser for OAuth. For manual PnP testing only;
     #               will fail inside a scheduled task with no user session.
-    # Certificate:  fully headless; requires -ClientId, -TenantId, and either
-    #               -CertThumbprint (cert already installed to CurrentUser or
-    #               LocalMachine cert store) or -CertPath (PFX file on disk).
-    # None:         skip the upload entirely; PDF is left in $LocalDir only.
+    # Certificate:  fully headless PnP upload; requires -ClientId, -TenantId,
+    #               and either -CertThumbprint (cert already installed to
+    #               CurrentUser or LocalMachine cert store) or -CertPath
+    #               (PFX file on disk).
     [ValidateSet("Interactive", "Certificate", "None")]
-    [string] $AuthMode           = "Interactive",
+    [string] $AuthMode           = "None",
     [string] $ClientId           = "",
     [string] $TenantId           = "",
     [string] $CertThumbprint     = "",
