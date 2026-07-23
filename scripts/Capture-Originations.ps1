@@ -109,7 +109,21 @@ if (-not (Test-Path $EdgeExe)) {
 }
 
 Write-Host "Capturing: $Url"
-Write-Host "Local out: $pdfPath"
+Write-Host "Final out: $pdfPath"
+
+# Edge writes to a temp path first, then we move the finished PDF to
+# $pdfPath. Two reasons:
+#   1. Start-Process -ArgumentList does not quote arguments that contain
+#      spaces, so passing --print-to-pdf=<path with spaces> results in
+#      Edge only seeing the first token of the path.
+#   2. OneDrive-synced folders sometimes reject in-place writes while
+#      still finalising a previous sync operation; writing to a plain
+#      local path avoids that whole class of races.
+$tempDir = Join-Path $env:TEMP "SamReporting"
+if (-not (Test-Path $tempDir)) {
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+}
+$tempPdfPath = Join-Path $tempDir $fileName
 
 # Edge headless on Windows Server spawns helper processes and the invoking
 # msedge.exe can exit before the PDF is fully written. Start-Process -Wait
@@ -123,19 +137,21 @@ $edgeArgs = @(
     '--auth-server-allowlist=dashboard',
     "--virtual-time-budget=$WaitMs",
     '--no-pdf-header-footer',
-    "--print-to-pdf=$pdfPath",
+    "--print-to-pdf=$tempPdfPath",
     $Url
 )
 Start-Process -FilePath $EdgeExe -ArgumentList $edgeArgs -Wait -NoNewWindow -ErrorAction Stop
 
 $deadline = (Get-Date).AddSeconds(15)
-while (-not (Test-Path $pdfPath -PathType Leaf) -and (Get-Date) -lt $deadline) {
+while (-not (Test-Path $tempPdfPath -PathType Leaf) -and (Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 500
 }
 
-if (-not (Test-Path $pdfPath -PathType Leaf)) {
-    throw "PDF was not created. Check that Edge is installed, /originations/print is reachable, and the run account has 'originations' access."
+if (-not (Test-Path $tempPdfPath -PathType Leaf)) {
+    throw "PDF was not created at $tempPdfPath. Check that Edge is installed, /originations/print is reachable, and the run account has 'originations' access."
 }
+
+Move-Item -Path $tempPdfPath -Destination $pdfPath -Force
 $sizeKb = [math]::Round((Get-Item $pdfPath).Length / 1KB, 1)
 Write-Host "PDF ready ($sizeKb KB)."
 
